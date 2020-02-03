@@ -198,6 +198,24 @@ func put(s *Client, uri string, body interface{}) (*http.Response, error) {
 	return res, err
 }
 
+// DO will add authentication headers and execute the given http request
+// useful for when you need more control over the request than the other methods offer
+func (s *Client) DO(req *http.Request) (*http.Response, error) {
+	if req.Header == nil {
+		req.Header = http.Header{}
+	}
+
+	auth, err := s.Authorization()
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", auth)
+
+	res, err := http.DefaultClient.Do(req)
+
+	return res, err
+}
+
 func setBody(req *http.Request, body interface{}) error {
 	if body == nil {
 		return fmt.Errorf("Body cannot be empty")
@@ -231,9 +249,6 @@ func setBody(req *http.Request, body interface{}) error {
 		return ioutil.NopCloser(r), nil
 	}
 
-	by := new(bytes.Buffer)
-	by.ReadFrom(req.Body)
-	s := by.String()
 	return nil
 }
 

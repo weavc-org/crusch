@@ -52,7 +52,7 @@ func RSAPrivateKeyFromPEMFile(keyfile string) (*rsa.PrivateKey, error) {
 func (s *Client) NewApplicationAuthFile(applicationID int64, keyfile string) {
 	key, err := ioutil.ReadFile(keyfile)
 	if err != nil {
-		fmt.Errorf("could not read private key: %s", err)
+		panic(fmt.Errorf("could not read private key: %s", err))
 	}
 	s.NewApplicationAuthBytes(applicationID, key)
 }
@@ -79,7 +79,7 @@ func (s *Client) NewApplicationAuth(applicationID int64, key *rsa.PrivateKey) {
 func (s *Client) NewInstallationAuthFile(applicationID int64, installationID int64, keyfile string) {
 	key, err := ioutil.ReadFile(keyfile)
 	if err != nil {
-		fmt.Errorf("could not read private key: %s", err)
+		panic(fmt.Errorf("could not read private key: %s", err))
 	}
 	s.NewInstallationAuthBytes(applicationID, installationID, key)
 }
@@ -128,7 +128,13 @@ func applicationAuthorization(s *Client) (string, error) {
 		return "", fmt.Errorf("could not sign jwt: %s", err)
 	}
 
-	return "Bearer " + signed, err
+	s.Auth.LastUsed = &LastUsed{
+		AuthHeader: "Bearer " + signed,
+		ValidUntil: time.Now().Add(time.Minute).Unix(),
+		Time:       time.Now().Unix(),
+	}
+
+	return s.Auth.LastUsed.AuthHeader, nil
 }
 
 func installationAuthorization(s *Client) (string, error) {
@@ -140,29 +146,37 @@ func installationAuthorization(s *Client) (string, error) {
 		}
 	}
 
-	var client = Client{BaseURL: s.BaseURL}
-	client.NewApplicationAuth(s.Auth.ApplicationID, s.Auth.Key)
+	var client = Pool.Get(fmt.Sprintf("crusch_application_%s", s.Auth.ApplicationID))
+	if client == nil {
+		client = &Client{Name: fmt.Sprintf("crusch_application_%s", s.Auth.ApplicationID), BaseURL: s.BaseURL}
+		client.NewApplicationAuth(s.Auth.ApplicationID, s.Auth.Key)
+	}
 
 	var v interface{}
-	m, _, err := client.POST("/app/installations/5793871/access_tokens", nil, v)
+	var uri = fmt.Sprintf("/app/installations/%d/access_tokens", s.Auth.InstallationID)
+	m, res, err := client.POST(uri, nil, v)
 	if err != nil {
 		return "", err
 	}
 
-	mapping, ok := m.(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("Error mapping result")
-	}
-	t, ok := mapping["token"].(string)
-	if !ok {
-		return "", fmt.Errorf("Error mapping result")
+	if res.StatusCode >= 200 && res.StatusCode < 300 {
+		mapping, ok := m.(map[string]interface{})
+		if !ok {
+			return "", fmt.Errorf("error mapping result")
+		}
+		t, ok := mapping["token"].(string)
+		if !ok {
+			return "", fmt.Errorf("error mapping result")
+		}
+
+		s.Auth.LastUsed = &LastUsed{
+			AuthHeader: "token " + t,
+			ValidUntil: time.Now().Add((time.Hour - time.Minute)).Unix(),
+			Time:       time.Now().Unix(),
+		}
+		return s.Auth.LastUsed.AuthHeader, nil
 	}
 
-	s.Auth.LastUsed = &LastUsed{
-		AuthHeader: "token " + t,
-		ValidUntil: time.Now().Add((time.Hour - time.Minute)).Unix(),
-		Time:       time.Now().Unix(),
-	}
+	return "", fmt.Errorf("Unable to create authentication token")
 
-	return s.Auth.LastUsed.AuthHeader, nil
 }
