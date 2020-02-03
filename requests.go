@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -14,19 +15,20 @@ import (
 )
 
 // GET makes get requests to Githubs API, using the Client for authorization and other details
-func (s *Client) GET(uri string, params interface{}, v interface{}) (interface{}, *http.Response, error) {
+func (s *Client) GET(uri string, params interface{}, v interface{}) (*http.Response, error) {
 	res, err := get(s, uri, params)
 	if err != nil {
-		return nil, res, err
+		return res, err
 	}
 
 	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(&v)
+	err = decoder.Decode(v)
 	if err != nil {
-		return nil, res, err
+		log.Print("decode error: ", err)
+		return res, err
 	}
 
-	return v, res, err
+	return res, err
 }
 
 func get(s *Client, uri string, params interface{}) (*http.Response, error) {
@@ -51,19 +53,19 @@ func get(s *Client, uri string, params interface{}) (*http.Response, error) {
 }
 
 // DELETE makes delete requests to Githubs API, using the Client for authorization and other details
-func (s *Client) DELETE(uri string, params interface{}, v interface{}) (interface{}, *http.Response, error) {
+func (s *Client) DELETE(uri string, params interface{}, v interface{}) (*http.Response, error) {
 	res, err := delete(s, uri, params)
 	if err != nil {
-		return nil, res, err
+		return res, err
 	}
 
 	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(&v)
+	err = decoder.Decode(v)
 	if err != nil {
-		return nil, res, err
+		return res, err
 	}
 
-	return v, res, err
+	return res, err
 }
 
 func delete(s *Client, uri string, params interface{}) (*http.Response, error) {
@@ -88,19 +90,19 @@ func delete(s *Client, uri string, params interface{}) (*http.Response, error) {
 }
 
 // POST makes post requests to Githubs API, using Client for authorization and other details
-func (s *Client) POST(uri string, body interface{}, v interface{}) (interface{}, *http.Response, error) {
+func (s *Client) POST(uri string, body interface{}, v interface{}) (*http.Response, error) {
 	res, err := post(s, uri, body)
 	if err != nil {
-		return nil, res, err
+		return res, err
 	}
 
 	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(&v)
+	err = decoder.Decode(v)
 	if err != nil {
-		return nil, res, err
+		return res, err
 	}
 
-	return v, res, err
+	return res, err
 }
 
 func post(s *Client, uri string, body interface{}) (*http.Response, error) {
@@ -125,19 +127,19 @@ func post(s *Client, uri string, body interface{}) (*http.Response, error) {
 }
 
 // PATCH makes patch requests to Githubs API, using Client for authorization and other details
-func (s *Client) PATCH(uri string, body interface{}, v interface{}) (interface{}, *http.Response, error) {
+func (s *Client) PATCH(uri string, body interface{}, v interface{}) (*http.Response, error) {
 	res, err := patch(s, uri, body)
 	if err != nil {
-		return nil, res, err
+		return res, err
 	}
 
 	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(&v)
+	err = decoder.Decode(v)
 	if err != nil {
-		return nil, res, err
+		return res, err
 	}
 
-	return v, res, err
+	return res, err
 }
 
 func patch(s *Client, uri string, body interface{}) (*http.Response, error) {
@@ -162,19 +164,19 @@ func patch(s *Client, uri string, body interface{}) (*http.Response, error) {
 }
 
 // PUT makes put requests to Githubs API, using Client for authorization and other details
-func (s *Client) PUT(uri string, body interface{}, v interface{}) (interface{}, *http.Response, error) {
+func (s *Client) PUT(uri string, body interface{}, v interface{}) (*http.Response, error) {
 	res, err := put(s, uri, body)
 	if err != nil {
-		return nil, res, err
+		return res, err
 	}
 
 	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(&v)
+	err = decoder.Decode(v)
 	if err != nil {
-		return nil, res, err
+		return res, err
 	}
 
-	return v, res, err
+	return res, err
 }
 
 func put(s *Client, uri string, body interface{}) (*http.Response, error) {
