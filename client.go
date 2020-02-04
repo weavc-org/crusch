@@ -1,5 +1,7 @@
 package crusch
 
+import "log"
+
 // Client for making http requests to Githubs v3 json api
 type Client struct {
 	Name    string
@@ -33,8 +35,7 @@ var (
 // GetByInstallationAuth tries to find an existing installation client that matches the auth details
 func (cp *ClientPool) GetByInstallationAuth(applicationID int64, installationID int64) *Client {
 	for _, Client := range cp.Pool {
-		if Client.Auth.LastUsed != nil &&
-			Client.Auth.AuthType == Installation &&
+		if Client.Auth != nil && Client.Auth.AuthType == Installation &&
 			Client.Auth.ApplicationID == applicationID &&
 			Client.Auth.InstallationID == installationID {
 			return Client
@@ -46,8 +47,8 @@ func (cp *ClientPool) GetByInstallationAuth(applicationID int64, installationID 
 // GetByApplicationAuth tries to find an existing application client that matches the auth details
 func (cp *ClientPool) GetByApplicationAuth(applicationID int64) *Client {
 	for _, Client := range cp.Pool {
-		if Client.Auth.LastUsed != nil &&
-			Client.Auth.AuthType == Application &&
+		log.Print(Client)
+		if Client.Auth != nil && Client.Auth.AuthType == Application &&
 			Client.Auth.ApplicationID == applicationID &&
 			Client.Auth.InstallationID == 0 {
 			return Client
@@ -56,10 +57,10 @@ func (cp *ClientPool) GetByApplicationAuth(applicationID int64) *Client {
 	return nil
 }
 
-// GetByApplicationOauthAuth tries to find an existing application client that matches the auth details
-func (cp *ClientPool) GetByApplicationOauthAuth(token string) *Client {
+// GetByOauthToken tries to find an existing application client that matches the auth details
+func (cp *ClientPool) GetByOauthToken(token string) *Client {
 	for _, Client := range cp.Pool {
-		if Client.Auth.LastUsed != nil &&
+		if Client.Auth != nil &&
 			Client.Auth.AuthType == OAuth &&
 			Client.Auth.OAuthAccessToken == token {
 			return Client
