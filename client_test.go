@@ -1,10 +1,18 @@
 package crusch
 
 import (
+	"os"
+	"strings"
 	"testing"
 )
 
 func TestClient(t *testing.T) {
+	envKey := false
+	key := os.Getenv("private_key")
+	if len(strings.TrimSpace(key)) != 0 {
+		envKey = true
+	}
+
 	client1 := New("test_1", "test_1.github.com")
 	client2 := New("test_2", "test_2.github.com")
 	client3 := New("test_2", "test_3.github.com")
@@ -35,7 +43,11 @@ func TestClient(t *testing.T) {
 
 	client3.NewOAuth("testing_123")
 	clientDefault.NewApplicationAuthFile(1234567, "random_key.pem")
-	client2Get.NewInstallationAuthFile(123456, 12345678, "random_key.pem")
+	if envKey {
+		client2Get.NewInstallationAuthBytes(123456, 12345678, []byte(key))
+	} else {
+		client2Get.NewInstallationAuthFile(123456, 12345678, "random_key.pem")
+	}
 
 	applicationClient := Pool.GetByApplicationAuth(1234567)
 	oauthClient := Pool.GetByOauthToken("testing_123")
