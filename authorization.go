@@ -11,20 +11,32 @@ import (
 )
 
 const (
-	Application  AuthType = 0
+	// Application authentication type
+	// This type works using the ApplicationID and
+	// private kd by Github
+	Application AuthType = 0
+	// Installation authentication type
+	// Similar to application but authorizes as a specific
+	// application installion using the ApplicationID, InstallationID
+	// and privatovided by Github
 	Installation AuthType = 1
+	// OAuth authentication type
+	// Just uses an OAuth token to authorize application as a specific user
+	OAuth AuthType = 2
 )
 
-// AuthType allows us to identify the authorization type to use
+// AuthType allows us to identify the authorization type to use when
+// generating authorization headers
 type AuthType int
 
 // Authorization for github requests
 type Authorization struct {
-	AuthType       AuthType
-	ApplicationID  int64
-	InstallationID int64
-	Key            *rsa.PrivateKey
-	LastUsed       *LastUsed
+	AuthType         AuthType
+	ApplicationID    int64
+	InstallationID   int64
+	OAuthAccessToken string
+	Key              *rsa.PrivateKey
+	LastUsed         *LastUsed
 }
 
 // LastUsed authentication header & valid until date for this Client
@@ -103,12 +115,22 @@ func (s *Client) NewInstallationAuth(applicationID int64, installationID int64, 
 	}
 }
 
+// NewOAuth creates a new OAuth authentication client
+func (s *Client) NewOAuth(token string) {
+	s.Auth = &Authorization{
+		AuthType:         OAuth,
+		OAuthAccessToken: token,
+	}
+}
+
 // Authorization creates and returns the Clients authorization header
 func (s *Client) Authorization() (string, error) {
 	if s.Auth.AuthType == Application {
 		return applicationAuthorization(s)
 	} else if s.Auth.AuthType == Installation {
 		return installationAuthorization(s)
+	} else if s.Auth.AuthType == OAuth {
+		return oauthAuthorization(s)
 	}
 
 	return "", fmt.Errorf("auth type not found")
@@ -146,25 +168,21 @@ func installationAuthorization(s *Client) (string, error) {
 		}
 	}
 
-	var client = Pool.Get(fmt.Sprintf("crusch_application_%s", s.Auth.ApplicationID))
+	var client = Pool.Get(fmt.Sprintf("crusch_application_%d", s.Auth.ApplicationID))
 	if client == nil {
-		client = &Client{Name: fmt.Sprintf("crusch_application_%s", s.Auth.ApplicationID), BaseURL: s.BaseURL}
+		client = &Client{Name: fmt.Sprintf("crusch_application_%d", s.Auth.ApplicationID), BaseURL: s.BaseURL}
 		client.NewApplicationAuth(s.Auth.ApplicationID, s.Auth.Key)
 	}
 
-	var v interface{}
+	var v = make(map[string]interface{})
 	var uri = fmt.Sprintf("/app/installations/%d/access_tokens", s.Auth.InstallationID)
-	m, res, err := client.POST(uri, nil, v)
+	res, err := client.PostJson(uri, nil, &v)
 	if err != nil {
 		return "", err
 	}
 
 	if res.StatusCode >= 200 && res.StatusCode < 300 {
-		mapping, ok := m.(map[string]interface{})
-		if !ok {
-			return "", fmt.Errorf("error mapping result")
-		}
-		t, ok := mapping["token"].(string)
+		t, ok := v["token"].(string)
 		if !ok {
 			return "", fmt.Errorf("error mapping result")
 		}
@@ -179,4 +197,22 @@ func installationAuthorization(s *Client) (string, error) {
 
 	return "", fmt.Errorf("Unable to create authentication token")
 
+}
+
+func oauthAuthorization(s *Client) (string, error) {
+
+	if s.Auth.LastUsed != nil {
+		if time.Now().Unix() <= s.Auth.LastUsed.ValidUntil {
+			s.Auth.LastUsed.Time = time.Now().Unix()
+			return s.Auth.LastUsed.AuthHeader, nil
+		}
+	}
+
+	s.Auth.LastUsed = &LastUsed{
+		AuthHeader: "bearer " + s.Auth.OAuthAccessToken,
+		ValidUntil: time.Now().Add((time.Hour - time.Minute)).Unix(),
+		Time:       time.Now().Unix(),
+	}
+
+	return s.Auth.LastUsed.AuthHeader, nil
 }

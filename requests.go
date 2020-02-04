@@ -5,195 +5,267 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"log"
 	"net/http"
-	"net/url"
 	"reflect"
 
 	"github.com/google/go-querystring/query"
 )
 
-// GET makes get requests to Githubs API, using the Client for authorization and other details
-func (s *Client) GET(uri string, params interface{}, v interface{}) (*http.Response, error) {
-	res, err := get(s, uri, params)
+// todo check request success before parsing body
+
+func (s *Client) GetJson(uri string, params interface{}, v interface{}) (*http.Response, error) {
+
+	res, err := s.Get(uri, params)
 	if err != nil {
 		return res, err
 	}
 
-	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(v)
-	if err != nil {
-		log.Print("decode error: ", err)
-		return res, err
+	if v != nil {
+		decoder := json.NewDecoder(res.Body)
+		err = decoder.Decode(v)
+		if err != nil {
+			return res, err
+		}
 	}
 
 	return res, err
 }
 
-func get(s *Client, uri string, params interface{}) (*http.Response, error) {
-	req, err := baseRequest(s, uri)
+func (s *Client) Get(uri string, params interface{}) (*http.Response, error) {
+
+	var p string
+	switch v := params.(type) {
+	case string:
+		p = v
+	case nil:
+		p = ""
+	default:
+		val := reflect.ValueOf(params)
+		if val.Kind() != reflect.Struct {
+			parsed, err := ParseQuery(params)
+			if err != nil {
+				return nil, fmt.Errorf("Error parsing params: %s", err)
+			}
+			p = parsed
+		} else {
+			return nil, fmt.Errorf("Unknown type of params, only takes string, Struct or nil")
+		}
+	}
+
+	url := fmt.Sprintf("https://%s%s?%s", s.BaseURL, uri, p)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating request: %s", err)
+	}
+
+	auth, err := s.Authorization()
 	if err != nil {
 		return nil, err
 	}
 
-	req.Method = http.MethodGet
-
-	if params != nil {
-		q, err := parseQuery(params)
-		if err != nil {
-			return nil, err
-		}
-		req.URL.RawQuery = q
-	}
+	req.Header.Add("Authorization", auth)
+	req.Header.Add("Accept", "application/vnd.github.machine-man-preview+json")
 
 	res, err := http.DefaultClient.Do(req)
 
 	return res, err
 }
 
-// DELETE makes delete requests to Githubs API, using the Client for authorization and other details
-func (s *Client) DELETE(uri string, params interface{}, v interface{}) (*http.Response, error) {
-	res, err := delete(s, uri, params)
+func (s *Client) DeleteJson(uri string, v interface{}) (*http.Response, error) {
+	res, err := s.Delete(uri)
 	if err != nil {
 		return res, err
 	}
 
-	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(v)
-	if err != nil {
-		return res, err
+	if v != nil {
+		decoder := json.NewDecoder(res.Body)
+		err = decoder.Decode(v)
+		if err != nil {
+			return res, fmt.Errorf("Error formatting json to v: %s", err)
+		}
 	}
 
 	return res, err
 }
 
-func delete(s *Client, uri string, params interface{}) (*http.Response, error) {
-	req, err := baseRequest(s, uri)
+func (s *Client) Delete(uri string) (*http.Response, error) {
+	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("Error creating request: %s", err)
+	}
+
+	auth, err := s.Authorization()
 	if err != nil {
 		return nil, err
 	}
 
-	req.Method = http.MethodDelete
-
-	if params != nil {
-		q, err := parseQuery(params)
-		if err != nil {
-			return nil, err
-		}
-		req.URL.RawQuery = q
-	}
+	req.Header.Add("Authorization", auth)
+	req.Header.Add("Accept", "application/vnd.github.machine-man-preview+json")
 
 	res, err := http.DefaultClient.Do(req)
 
 	return res, err
 }
 
-// POST makes post requests to Githubs API, using Client for authorization and other details
-func (s *Client) POST(uri string, body interface{}, v interface{}) (*http.Response, error) {
-	res, err := post(s, uri, body)
+func (s *Client) PostJson(uri string, body interface{}, v interface{}) (*http.Response, error) {
+
+	b, err := JsonBody(body)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing body to json: %s", err)
+	}
+
+	res, err := s.Post(uri, b)
 	if err != nil {
 		return res, err
 	}
 
-	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(v)
-	if err != nil {
-		return res, err
+	if v != nil {
+		decoder := json.NewDecoder(res.Body)
+		err = decoder.Decode(v)
+		if err != nil {
+			return res, fmt.Errorf("Error formatting json to v: %s", err)
+		}
 	}
 
 	return res, err
 }
 
-func post(s *Client, uri string, body interface{}) (*http.Response, error) {
-	req, err := baseRequest(s, uri)
-	if err != nil {
-		return nil, err
-	}
+func (s *Client) Post(uri string, body *bytes.Buffer) (*http.Response, error) {
 
-	req.Method = http.MethodPost
+	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
 
+	var req *http.Request
 	if body != nil {
-		err = setBody(req, body)
+		r, err := http.NewRequest("POST", url, body)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("Error creating request: %s", err)
 		}
-		req.Header.Set("Content-Type", "application/json")
+		req = r
+	} else {
+		r, err := http.NewRequest("POST", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating request: %s", err)
+		}
+		req = r
 	}
+
+	auth, err := s.Authorization()
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header = http.Header{}
+	req.Header.Add("Authorization", auth)
+	req.Header.Add("Accept", "application/vnd.github.machine-man-preview+json")
 
 	res, err := http.DefaultClient.Do(req)
 
 	return res, err
 }
 
-// PATCH makes patch requests to Githubs API, using Client for authorization and other details
-func (s *Client) PATCH(uri string, body interface{}, v interface{}) (*http.Response, error) {
-	res, err := patch(s, uri, body)
+func (s *Client) PatchJson(uri string, body interface{}, v interface{}) (*http.Response, error) {
+	b, err := JsonBody(body)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing body to json: %s", err)
+	}
+
+	res, err := s.Patch(uri, b)
 	if err != nil {
 		return res, err
 	}
 
-	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(v)
-	if err != nil {
-		return res, err
+	if v != nil {
+		decoder := json.NewDecoder(res.Body)
+		err = decoder.Decode(v)
+		if err != nil {
+			return res, fmt.Errorf("Error formatting json to v: %s", err)
+		}
 	}
 
 	return res, err
 }
 
-func patch(s *Client, uri string, body interface{}) (*http.Response, error) {
-	req, err := baseRequest(s, uri)
+func (s *Client) Patch(uri string, body *bytes.Buffer) (*http.Response, error) {
+
+	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
+
+	var req *http.Request
+	if body != nil {
+		r, err := http.NewRequest("POST", url, body)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating request: %s", err)
+		}
+		req = r
+	} else {
+		r, err := http.NewRequest("POST", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating request: %s", err)
+		}
+		req = r
+	}
+
+	auth, err := s.Authorization()
 	if err != nil {
 		return nil, err
 	}
 
-	req.Method = http.MethodPatch
-
-	if body != nil {
-		err = setBody(req, body)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Add("Authorization", auth)
+	req.Header.Add("Accept", "application/vnd.github.machine-man-preview+json")
 
 	res, err := http.DefaultClient.Do(req)
 
 	return res, err
 }
 
-// PUT makes put requests to Githubs API, using Client for authorization and other details
-func (s *Client) PUT(uri string, body interface{}, v interface{}) (*http.Response, error) {
-	res, err := put(s, uri, body)
+func (s *Client) PutJson(uri string, body interface{}, v interface{}) (*http.Response, error) {
+	b, err := JsonBody(body)
+	if err != nil {
+		return nil, fmt.Errorf("Error parsing body to json: %s", err)
+	}
+
+	res, err := s.Put(uri, b)
 	if err != nil {
 		return res, err
 	}
 
-	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(v)
-	if err != nil {
-		return res, err
+	if v != nil {
+		decoder := json.NewDecoder(res.Body)
+		err = decoder.Decode(v)
+		if err != nil {
+			return res, fmt.Errorf("Error formatting json to v: %s", err)
+		}
 	}
 
 	return res, err
 }
 
-func put(s *Client, uri string, body interface{}) (*http.Response, error) {
-	req, err := baseRequest(s, uri)
+func (s *Client) Put(uri string, body *bytes.Buffer) (*http.Response, error) {
+
+	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
+
+	var req *http.Request
+	if body != nil {
+		r, err := http.NewRequest("POST", url, body)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating request: %s", err)
+		}
+		req = r
+	} else {
+		r, err := http.NewRequest("POST", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("Error creating request: %s", err)
+		}
+		req = r
+	}
+
+	auth, err := s.Authorization()
 	if err != nil {
 		return nil, err
 	}
 
-	req.Method = http.MethodPut
-
-	if body != nil {
-		err = setBody(req, body)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Content-Type", "application/json")
-	}
+	req.Header.Add("Authorization", auth)
+	req.Header.Add("Accept", "application/vnd.github.machine-man-preview+json")
 
 	res, err := http.DefaultClient.Do(req)
 
@@ -218,43 +290,30 @@ func (s *Client) DO(req *http.Request) (*http.Response, error) {
 	return res, err
 }
 
-func setBody(req *http.Request, body interface{}) error {
+func JsonBody(body interface{}) (*bytes.Buffer, error) {
+
 	if body == nil {
-		return fmt.Errorf("Body cannot be empty")
+		return nil, nil
 	}
+
 	var buf io.ReadWriter
 	buf = &bytes.Buffer{}
 	enc := json.NewEncoder(buf)
 	enc.SetEscapeHTML(false)
 	err := enc.Encode(body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	r, ok := buf.(io.Reader)
-	if ok {
-		rc, ok := r.(io.ReadCloser)
-		if !ok && buf != nil {
-			rc = ioutil.NopCloser(buf)
-		}
-		req.Body = rc
-	}
-
-	buffer, ok := r.(*bytes.Buffer)
+	buffer, ok := buf.(*bytes.Buffer)
 	if !ok {
-		return fmt.Errorf("Cannot create buffer")
-	}
-	req.ContentLength = int64(buffer.Len())
-	b := buffer.Bytes()
-	req.GetBody = func() (io.ReadCloser, error) {
-		r := bytes.NewReader(b)
-		return ioutil.NopCloser(r), nil
+		return nil, fmt.Errorf("Failed to create buffer")
 	}
 
-	return nil
+	return buffer, nil
 }
 
-func parseQuery(opt interface{}) (string, error) {
+func ParseQuery(opt interface{}) (string, error) {
 	v := reflect.ValueOf(opt)
 	if v.Kind() == reflect.Ptr && v.IsNil() {
 		return "", nil
@@ -266,21 +325,4 @@ func parseQuery(opt interface{}) (string, error) {
 	}
 
 	return qs.Encode(), nil
-}
-
-func baseRequest(s *Client, uri string) (*http.Request, error) {
-	req := http.Request{}
-
-	auth, err := s.Authorization()
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header = http.Header{}
-
-	req.Header.Add("Authorization", auth)
-	req.Header.Add("Accept", "application/vnd.github.machine-man-preview+json")
-	req.URL = &url.URL{Scheme: "https", Host: s.BaseURL, Path: uri}
-
-	return &req, nil
 }

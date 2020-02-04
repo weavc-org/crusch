@@ -20,6 +20,7 @@ func New(name string, baseURL string) *Client {
 }
 
 // ClientPool stores a slice of Clients created in this session
+// Clients are automatically added when created using New or NewDefault
 type ClientPool struct {
 	Pool []*Client
 }
@@ -29,13 +30,38 @@ var (
 	Pool ClientPool = ClientPool{}
 )
 
-// GetByAuth tries to find an existing Client that matches the auth details
-func (cp *ClientPool) GetByAuth(Type AuthType, applicationID int64, installationID int64) *Client {
+// GetByInstallationAuth tries to find an existing installation client that matches the auth details
+func (cp *ClientPool) GetByInstallationAuth(applicationID int64, installationID int64) *Client {
 	for _, Client := range cp.Pool {
 		if Client.Auth.LastUsed != nil &&
-			Client.Auth.AuthType == Type &&
+			Client.Auth.AuthType == Installation &&
 			Client.Auth.ApplicationID == applicationID &&
 			Client.Auth.InstallationID == installationID {
+			return Client
+		}
+	}
+	return nil
+}
+
+// GetByApplicationAuth tries to find an existing application client that matches the auth details
+func (cp *ClientPool) GetByApplicationAuth(applicationID int64) *Client {
+	for _, Client := range cp.Pool {
+		if Client.Auth.LastUsed != nil &&
+			Client.Auth.AuthType == Application &&
+			Client.Auth.ApplicationID == applicationID &&
+			Client.Auth.InstallationID == 0 {
+			return Client
+		}
+	}
+	return nil
+}
+
+// GetByApplicationOauthAuth tries to find an existing application client that matches the auth details
+func (cp *ClientPool) GetByApplicationOauthAuth(token string) *Client {
+	for _, Client := range cp.Pool {
+		if Client.Auth.LastUsed != nil &&
+			Client.Auth.AuthType == OAuth &&
+			Client.Auth.OAuthAccessToken == token {
 			return Client
 		}
 	}

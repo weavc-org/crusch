@@ -1,8 +1,12 @@
 ## Crusch
 
-A lightweight golang module for making requests and authenticating against Githubs V3 json API. If you are looking for something more complete, [`google/go-github`](https://github.com/google/go-github) is probably the module for you. I made this as I didn't really have a need for what `go-github` offered, I just wanted something quick to make requests and authenticate with Githubs API without the hassle of models, cross-referencing multiple pieces of documentation etc. 
+Crusch provides tools for communicating Githubs V3 API with Github applications and installations, hopefully without too much unnecessary hassle.
 
-Crusch pretty much just handles authentication, headers and can do model binding etc if wanted.
+If you are looking for something more complete, [`google/go-github`](https://github.com/google/go-github) is probably for you. But if you are looking for something quick and lightweight this might be worth a shot. 
+
+You just create a client with the necassary details i.e. ApplicationID, InstallationID and a keyfile and you can make requests to githubs API. When using the `Client.`[`GET`, `POST`, `PUT`, `PATCH`, `DELETE`] methods, the basic headers github expects (Accept, Authorization etc) are all attached to the requests by default. Other requests might need something abit different (i.e. reactions), here you can use the `Client.DO` method which takes a pre-built `*http.Request` and attaches only the required authorization headers. 
+
+If provided with a struct, the Client requests will also attempt to bind the responses body to it.  
 
 ### Usage
 
@@ -15,7 +19,7 @@ basic example
 client := crusch.NewDefault()
 client.NewInstallationAuthFile(<ApplicationID>, <InstallationID>, <PEM keyfile location>)
 
-model, respose, err := client.GET(
+respose, err := client.GET(
     fmt.Sprintf("/repos/%s/%s/issues", <user>, <repo>), 
     <query model>, 
     <binding model>)
@@ -49,10 +53,17 @@ res, err := client.DO(req)
 ```
 
 ### Todo
-- [ ] optional types/models
-- [ ] other forms of authentication i.e. oauth
+- [ ] ~~models/types~~ using go-githubs for now
+- [ ] use context
 - [ ] docs
 - [ ] tests
+- [ ] github actions
+- [ ] check response success before parsing body
+- [ ] check input information on new auths
+- [ ] Oauth/token type, github sends down the type in the response
+- [ ] remove or allow setting of https/http
+- [ ] rename module to github.com/aixr/crusch
+- [ ] Redo readme after large changes
 
 ### Notes
 Im extemely new to golang (this is the second project, made alongside the 'first') so there are certainly things that can be done better, I will happily take feedback/contributions.
