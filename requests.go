@@ -11,8 +11,8 @@ import (
 	"github.com/google/go-querystring/query"
 )
 
-// todo check request success before parsing body
-
+// GetJson executes a GET http request to given uri and params and binds the response to v
+// params must be a Struct, string or nil
 func (s *Client) GetJson(uri string, params interface{}, v interface{}) (*http.Response, error) {
 
 	res, err := s.Get(uri, params)
@@ -31,6 +31,8 @@ func (s *Client) GetJson(uri string, params interface{}, v interface{}) (*http.R
 	return res, err
 }
 
+// Get executes a GET http request to given uri and params
+// params must be a Struct, string or nil
 func (s *Client) Get(uri string, params interface{}) (*http.Response, error) {
 
 	var p string
@@ -71,6 +73,7 @@ func (s *Client) Get(uri string, params interface{}) (*http.Response, error) {
 	return res, err
 }
 
+// DeleteJson executes a Delete http request to given uri and binds the response to v
 func (s *Client) DeleteJson(uri string, v interface{}) (*http.Response, error) {
 	res, err := s.Delete(uri)
 	if err != nil {
@@ -88,6 +91,7 @@ func (s *Client) DeleteJson(uri string, v interface{}) (*http.Response, error) {
 	return res, err
 }
 
+// Delete executes a Delete http request to given uri
 func (s *Client) Delete(uri string) (*http.Response, error) {
 	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
 	req, err := http.NewRequest("DELETE", url, nil)
@@ -108,6 +112,8 @@ func (s *Client) Delete(uri string) (*http.Response, error) {
 	return res, err
 }
 
+// PostJson executes a POST http request to given uri and binds the response to v
+// body will be encoded to json, use nil for no body
 func (s *Client) PostJson(uri string, body interface{}, v interface{}) (*http.Response, error) {
 
 	b, err := JsonBody(body)
@@ -131,6 +137,8 @@ func (s *Client) PostJson(uri string, body interface{}, v interface{}) (*http.Re
 	return res, err
 }
 
+// Post executes a POST http request to given uri and binds the response to v
+// body will be encoded to json, use nil for no body
 func (s *Client) Post(uri string, body *bytes.Buffer) (*http.Response, error) {
 
 	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
@@ -164,6 +172,8 @@ func (s *Client) Post(uri string, body *bytes.Buffer) (*http.Response, error) {
 	return res, err
 }
 
+// PatchJson executes a PATCH http request to given uri and binds the response to v
+// body will be encoded to json, use nil for no body
 func (s *Client) PatchJson(uri string, body interface{}, v interface{}) (*http.Response, error) {
 	b, err := JsonBody(body)
 	if err != nil {
@@ -186,6 +196,8 @@ func (s *Client) PatchJson(uri string, body interface{}, v interface{}) (*http.R
 	return res, err
 }
 
+// Patch executes a PATCH http request to given uri and binds the response to v
+// body will be encoded to json, use nil for no body
 func (s *Client) Patch(uri string, body *bytes.Buffer) (*http.Response, error) {
 
 	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
@@ -218,6 +230,8 @@ func (s *Client) Patch(uri string, body *bytes.Buffer) (*http.Response, error) {
 	return res, err
 }
 
+// PutJson executes a PUT http request to given uri and binds the response to v
+// body will be encoded to json, use nil for no body
 func (s *Client) PutJson(uri string, body interface{}, v interface{}) (*http.Response, error) {
 	b, err := JsonBody(body)
 	if err != nil {
@@ -240,6 +254,8 @@ func (s *Client) PutJson(uri string, body interface{}, v interface{}) (*http.Res
 	return res, err
 }
 
+// Put executes a PUT http request to given uri and binds the response to v
+// body will be encoded to json, use nil for no body
 func (s *Client) Put(uri string, body *bytes.Buffer) (*http.Response, error) {
 
 	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
@@ -272,9 +288,9 @@ func (s *Client) Put(uri string, body *bytes.Buffer) (*http.Response, error) {
 	return res, err
 }
 
-// DO will add authentication headers and execute the given http request
-// useful for when you need more control over the request than the other methods offer
-func (s *Client) DO(req *http.Request) (*http.Response, error) {
+// Do takes a *http.Request adds authorization headers and performs the request
+// useful for requests that don't follow Githubs usual headers and body etc i.e. reactions
+func (s *Client) Do(req *http.Request) (*http.Response, error) {
 	if req.Header == nil {
 		req.Header = http.Header{}
 	}
@@ -290,6 +306,7 @@ func (s *Client) DO(req *http.Request) (*http.Response, error) {
 	return res, err
 }
 
+// JsonBody takes a model/struct and attempts to make it into a *bytes.Buffer
 func JsonBody(body interface{}) (*bytes.Buffer, error) {
 
 	if body == nil {
@@ -313,6 +330,7 @@ func JsonBody(body interface{}) (*bytes.Buffer, error) {
 	return buffer, nil
 }
 
+// ParseQuery turns a struct into a url encoded query string
 func ParseQuery(opt interface{}) (string, error) {
 	v := reflect.ValueOf(opt)
 	if v.Kind() == reflect.Ptr && v.IsNil() {
