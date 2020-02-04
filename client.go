@@ -1,7 +1,5 @@
 package crusch
 
-import "log"
-
 // Client for making http requests to Githubs v3 json api
 type Client struct {
 	Name    string
@@ -47,7 +45,6 @@ func (cp *ClientPool) GetByInstallationAuth(applicationID int64, installationID 
 // GetByApplicationAuth tries to find an existing application client that matches the auth details
 func (cp *ClientPool) GetByApplicationAuth(applicationID int64) *Client {
 	for _, Client := range cp.Pool {
-		log.Print(Client)
 		if Client.Auth != nil && Client.Auth.AuthType == Application &&
 			Client.Auth.ApplicationID == applicationID &&
 			Client.Auth.InstallationID == 0 {
