@@ -41,7 +41,7 @@ func TestClient(t *testing.T) {
 		t.Error("Didnt update client2Get: ", client2Get)
 	}
 
-	client3.NewOAuth("testing_123")
+	client3.NewOAuth("testing_123", "")
 	clientDefault.NewApplicationAuthFile(1234567, "random_key.pem")
 	if envKey {
 		client2Get.NewInstallationAuthBytes(123456, 12345678, []byte(key))

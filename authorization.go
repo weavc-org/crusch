@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strconv"
+	"strings"
 	"time"
 
 	jwt "github.com/dgrijalva/jwt-go"
@@ -35,6 +36,7 @@ type Authorization struct {
 	ApplicationID    int64
 	InstallationID   int64
 	OAuthAccessToken string
+	OAuthType        string
 	Key              *rsa.PrivateKey
 	LastUsed         *LastUsed
 }
@@ -116,10 +118,14 @@ func (s *Client) NewInstallationAuth(applicationID int64, installationID int64, 
 }
 
 // NewOAuth creates a new OAuth authentication client
-func (s *Client) NewOAuth(token string) {
+func (s *Client) NewOAuth(token string, oauthType string) {
+	if len(strings.TrimSpace(oauthType)) == 0 {
+		oauthType = "bearer"
+	}
 	s.Auth = &Authorization{
 		AuthType:         OAuth,
 		OAuthAccessToken: token,
+		OAuthType:        oauthType,
 	}
 }
 
@@ -201,16 +207,9 @@ func installationAuthorization(s *Client) (string, error) {
 
 func oauthAuthorization(s *Client) (string, error) {
 
-	if s.Auth.LastUsed != nil {
-		if time.Now().Unix() <= s.Auth.LastUsed.ValidUntil {
-			s.Auth.LastUsed.Time = time.Now().Unix()
-			return s.Auth.LastUsed.AuthHeader, nil
-		}
-	}
-
 	s.Auth.LastUsed = &LastUsed{
-		AuthHeader: "bearer " + s.Auth.OAuthAccessToken,
-		ValidUntil: time.Now().Add((time.Hour - time.Minute)).Unix(),
+		AuthHeader: fmt.Sprintf("%s %s", s.Auth.OAuthType, s.Auth.OAuthAccessToken),
+		ValidUntil: 0,
 		Time:       time.Now().Unix(),
 	}
 
