@@ -176,7 +176,7 @@ func installationAuthorization(s *Client) (string, error) {
 
 	var client = Pool.Get(fmt.Sprintf("crusch_application_%d", s.Auth.ApplicationID))
 	if client == nil {
-		client = &Client{Name: fmt.Sprintf("crusch_application_%d", s.Auth.ApplicationID), BaseURL: s.BaseURL}
+		client = New(fmt.Sprintf("crusch_application_%d", s.Auth.ApplicationID), s.BaseURL)
 		client.NewApplicationAuth(s.Auth.ApplicationID, s.Auth.Key)
 	}
 

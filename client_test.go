@@ -1,21 +1,17 @@
 package crusch
 
 import (
-	"os"
-	"strings"
 	"testing"
 )
 
 func TestClient(t *testing.T) {
-	envKey := false
-	key := os.Getenv("private_key")
-	if len(strings.TrimSpace(key)) != 0 {
-		envKey = true
-	}
+
+	Pool = ClientPool{}
 
 	client1 := New("test_1", "test_1.github.com")
 	client2 := New("test_2", "test_2.github.com")
 	client3 := New("test_2", "test_3.github.com")
+	_ = client3
 	clientDefault := NewDefault()
 
 	if client1.Name != "test_1" || client1.BaseURL != "test_1.github.com" {
@@ -30,63 +26,118 @@ func TestClient(t *testing.T) {
 		t.Error("Invalid default client: ", clientDefault)
 	}
 
-	client2Get := Pool.Get("test_2")
-	if client2Get.Name != "test_2" || client2Get.BaseURL != "test_2.github.com" {
-		t.Error("Invalid client2Get: ", client2Get)
+	clientDefault = clientDefault.Dispose()
+
+	if clientDefault != nil {
+		t.Error("clientDefault should be disposed: ", clientDefault)
+	}
+}
+
+func TestPool(t *testing.T) {
+	Pool = ClientPool{}
+
+	new1 := New("test_1", "test_1.github.com")
+	new2 := New("test_2", "test_2.github.com")
+	_ = new1
+	_ = new2
+
+	client2 := Pool.Get("test_2")
+	if client2.Name != "test_2" || client2.BaseURL != "test_2.github.com" {
+		t.Error("Invalid client2: ", client2)
 	}
 
 	client2.Name = "test_2_updated"
 
-	if client2Get.Name != "test_2_updated" {
-		t.Error("Didnt update client2Get: ", client2Get)
+	client2Get := Pool.Get("test_2")
+	if client2Get != nil {
+		t.Error("found test_2 when shouldn't have: ", client2Get)
 	}
 
-	client3.NewOAuth("testing_123", "")
-	clientDefault.NewApplicationAuthFile(1234567, "random_key.pem")
-	if envKey {
-		client2Get.NewInstallationAuthBytes(123456, 12345678, []byte(key))
-	} else {
-		client2Get.NewInstallationAuthFile(123456, 12345678, "random_key.pem")
+	oauthClient := NewDefault()
+	oauthClient.NewOAuth("testing_123", "")
+
+	applicationClient := NewDefault()
+	applicationClient.NewApplicationAuthFile(1234567, "random_key.pem")
+
+	installationClient := NewDefault()
+	installationClient.NewInstallationAuthFile(123456, 12345678, "random_key.pem")
+
+	applicationClientGet := Pool.GetByApplicationAuth(1234567)
+	oauthClientGet := Pool.GetByOauthToken("testing_123")
+	installationClientGet := Pool.GetByInstallationAuth(123456, 12345678)
+
+	if applicationClientGet == nil ||
+		applicationClientGet.Auth.AuthType != Application ||
+		applicationClientGet.Name != "default" ||
+		applicationClientGet.Auth.ApplicationID != 1234567 ||
+		applicationClientGet.Auth.InstallationID != 0 {
+		t.Error("application client invalid: ", applicationClientGet)
 	}
 
-	applicationClient := Pool.GetByApplicationAuth(1234567)
-	oauthClient := Pool.GetByOauthToken("testing_123")
-	installationClient := Pool.GetByInstallationAuth(123456, 12345678)
-
-	if applicationClient.Auth.AuthType != Application ||
-		applicationClient.Name != "default" ||
-		applicationClient.Auth.ApplicationID != 1234567 ||
-		applicationClient.Auth.InstallationID != 0 {
-		t.Error("application client invalid: ", applicationClient)
+	if oauthClientGet == nil ||
+		oauthClientGet.Auth.AuthType != OAuth ||
+		oauthClientGet.Auth.ApplicationID != 0 ||
+		oauthClientGet.Auth.InstallationID != 0 ||
+		oauthClientGet.Auth.OAuthAccessToken != "testing_123" {
+		t.Error("oauth client invalid: ", oauthClientGet)
 	}
 
-	if oauthClient.Auth.AuthType != OAuth ||
-		oauthClient.Name != "test_2" ||
-		oauthClient.Auth.ApplicationID != 0 ||
-		oauthClient.Auth.InstallationID != 0 ||
-		oauthClient.Auth.OAuthAccessToken != "testing_123" {
-		t.Error("oauth client invalid: ", oauthClient)
+	if installationClientGet == nil ||
+		installationClientGet.Auth.AuthType != Installation ||
+		installationClientGet.Auth.ApplicationID != 123456 ||
+		installationClientGet.Auth.InstallationID != 12345678 {
+		t.Error("installation client invalid: ", installationClientGet)
 	}
 
-	if installationClient.Auth.AuthType != Installation ||
-		installationClient.Name != "test_2_updated" ||
-		installationClient.Auth.ApplicationID != 123456 ||
-		installationClient.Auth.InstallationID != 12345678 {
-		t.Error("installation client invalid: ", installationClient)
+	applicationClientGet = Pool.GetByApplicationAuth(234567)
+	if applicationClientGet != nil {
+		t.Error("application client should be nil: ", applicationClientGet)
 	}
 
-	applicationClient = Pool.GetByApplicationAuth(234567)
-	if applicationClient != nil {
-		t.Error("application client should be nil: ", applicationClient)
+	oauthClientGet = Pool.GetByOauthToken("40040400400400400000dkkk")
+	if oauthClientGet != nil {
+		t.Error("oauth client should be nil: ", oauthClientGet)
 	}
 
-	installationClient = Pool.GetByInstallationAuth(234567, 6969)
-	if installationClient != nil {
-		t.Error("installation client should be nil: ", installationClient)
+	installationClientGet = Pool.GetByInstallationAuth(234567, 6969)
+	if installationClientGet != nil {
+		t.Error("installation client should be nil: ", installationClientGet)
+	}
+}
+
+func TestGetURL(t *testing.T) {
+
+	Pool = ClientPool{}
+
+	client1 := New("1", "test_1.github.com")
+	client2 := New("2", "http://test_2.github.com")
+	client3 := New("3", "test_3.github.com")
+	clientDefault := NewDefault()
+
+	url1 := client1.GetURL()
+	if url1 != "https://test_1.github.com" {
+		t.Error("client1 url incorrect: ", url1)
 	}
 
-	oauthClient = Pool.GetByOauthToken("40040400400400400000dkkk")
-	if oauthClient != nil {
-		t.Error("oauth client should be nil: ", oauthClient)
+	url2 := client2.GetURL()
+	if url2 != "http://test_2.github.com" {
+		t.Error("client2 url incorrect: ", url2)
+	}
+
+	client3.Protocol = "http"
+	url3 := client3.GetURL()
+	if url3 != "http://test_3.github.com" {
+		t.Error("client3 url incorrect: ", url3)
+	}
+
+	client3.Protocol = "ftp"
+	url4 := client3.GetURL()
+	if url4 != "https://test_3.github.com" {
+		t.Error("client3 url incorrect: ", url3)
+	}
+
+	urlDefault := clientDefault.GetURL()
+	if urlDefault != "https://api.github.com" {
+		t.Error("Default url incorrect: ", urlDefault)
 	}
 }

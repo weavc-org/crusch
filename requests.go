@@ -54,7 +54,7 @@ func (s *Client) Get(uri string, params interface{}) (*http.Response, error) {
 		}
 	}
 
-	url := fmt.Sprintf("https://%s%s?%s", s.BaseURL, uri, p)
+	url := fmt.Sprintf("%s://%s%s?%s", s.Protocol, s.BaseURL, uri, p)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating request: %s", err)
@@ -93,7 +93,7 @@ func (s *Client) DeleteJson(uri string, v interface{}) (*http.Response, error) {
 
 // Delete executes a Delete http request to given uri
 func (s *Client) Delete(uri string) (*http.Response, error) {
-	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
+	url := fmt.Sprintf("%s://%s%s", s.Protocol, s.BaseURL, uri)
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Error creating request: %s", err)
@@ -141,7 +141,7 @@ func (s *Client) PostJson(uri string, body interface{}, v interface{}) (*http.Re
 // body will be encoded to json, use nil for no body
 func (s *Client) Post(uri string, body *bytes.Buffer) (*http.Response, error) {
 
-	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
+	url := fmt.Sprintf("%s://%s%s", s.Protocol, s.BaseURL, uri)
 
 	var req *http.Request
 	if body != nil {
@@ -200,7 +200,7 @@ func (s *Client) PatchJson(uri string, body interface{}, v interface{}) (*http.R
 // body will be encoded to json, use nil for no body
 func (s *Client) Patch(uri string, body *bytes.Buffer) (*http.Response, error) {
 
-	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
+	url := fmt.Sprintf("%s://%s%s", s.Protocol, s.BaseURL, uri)
 
 	var req *http.Request
 	if body != nil {
@@ -257,8 +257,8 @@ func (s *Client) PutJson(uri string, body interface{}, v interface{}) (*http.Res
 // Put executes a PUT http request to given uri and binds the response to v
 // body will be encoded to json, use nil for no body
 func (s *Client) Put(uri string, body *bytes.Buffer) (*http.Response, error) {
-
-	url := fmt.Sprintf("https://%s%s", s.BaseURL, uri)
+	
+	url := fmt.Sprintf("%s://%s%s", s.Protocol, s.BaseURL, uri)
 
 	var req *http.Request
 	if body != nil {

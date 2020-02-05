@@ -1,10 +1,16 @@
 package crusch
 
+import (
+	"fmt"
+	"strings"
+)
+
 // Client for making http requests to Githubs v3 json api
 type Client struct {
-	Name    string
-	BaseURL string
-	Auth    *Authorization
+	Name     string
+	BaseURL  string
+	Protocol string
+	Auth     *Authorization
 }
 
 // NewDefault creates a new Client with default values and no auth
@@ -14,9 +20,57 @@ func NewDefault() *Client {
 
 // New creates a new Client struct using given arguments
 func New(name string, baseURL string) *Client {
-	s := Client{Name: name, BaseURL: baseURL}
+	s := Client{
+		Name:     name,
+		BaseURL:  baseURL,
+		Protocol: "https",
+	}
 	Pool.Pool = append(Pool.Pool, &s)
 	return &s
+}
+
+// GetURL looks at values in client and formats the full url
+// this method isn't exactly fool-proof but it should kind of work...
+func (s *Client) GetURL() string {
+	// sets defaults
+	protocol := "https"
+	url := "api.github.com"
+
+	// if there is a protocol set
+	if len(strings.TrimSpace(s.Protocol)) != 0 {
+		// if the set protocol is 'http' or 'https' use it
+		if s.Protocol == "http" || s.Protocol == "https" {
+			protocol = s.Protocol
+		}
+	}
+
+	// check if baseurl has value, use it
+	if len(strings.TrimSpace(s.BaseURL)) != 0 {
+		url = s.BaseURL
+	}
+
+	// if there isn't a prefix already set on baseurl
+	if !strings.HasPrefix(s.BaseURL, "http:") &&
+		!strings.HasPrefix(s.BaseURL, "https:") {
+		url = fmt.Sprintf("%s://%s", protocol, url)
+	}
+
+	return url
+}
+
+// Dispose of client and references to it
+func (s *Client) Dispose() *Client {
+	i, err := Pool.getClientIndex(s)
+	if err != nil {
+		Pool.Pool = append(Pool.Pool[:i], Pool.Pool[i+1:]...)
+	}
+
+	s.Auth = nil
+	s.BaseURL = ""
+	s.Name = ""
+	s = nil
+
+	return s
 }
 
 // ClientPool stores a slice of Clients created in this session
@@ -40,6 +94,16 @@ func (cp *ClientPool) GetByInstallationAuth(applicationID int64, installationID 
 		}
 	}
 	return nil
+}
+
+// GetByInstallationAuth tries to find an existing installation client that matches the auth details
+func (cp *ClientPool) getClientIndex(c *Client) (int, error) {
+	for i, client := range cp.Pool {
+		if c == client {
+			return i, nil
+		}
+	}
+	return 0, fmt.Errorf("No client found")
 }
 
 // GetByApplicationAuth tries to find an existing application client that matches the auth details
