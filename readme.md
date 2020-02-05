@@ -1,3 +1,5 @@
+![Go](https://github.com/aixr/crusch/workflows/Go/badge.svg?branch=master)
+
 Crusch is a lightweight libary which provides tools for Github Apps communicating with Githubs V3 API, without too much unnecessary hassle.
 
 This libary provides a simple client structure to make requests to their API, the clients aid with adding and creating the required authorization headers and keeping track of when they might need to be renewed etc.
