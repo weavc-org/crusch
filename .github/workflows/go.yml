@@ -5,7 +5,7 @@ on:
     - master
   pull_request:
     branches:
-    - master
+    - '*'
 
 jobs:
 
@@ -33,3 +33,6 @@ jobs:
       run: go test -v ./...
       env:
         private_key: ${{ secrets.private_key }}
+        application_id: ${{ secrets.application_id }}
+        installation_id: ${{ secrets.installation_id }}
+        oauth_token: ${{ secrets.oauth_token }}
