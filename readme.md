@@ -1,5 +1,5 @@
-![tests](https://github.com/aixr/crusch/workflows/Go/badge.svg?branch=master) 
-[![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/aixr/crusch)
+![tests](https://github.com/chrisweaver1/crusch/workflows/Go/badge.svg?branch=master) 
+[![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/chrisweaver1/crusch)
 
 Crusch is a lightweight libary which provides tools for Github Apps to communicate with Githubs V3 API, without too much unnecessary hassle.
 
@@ -10,7 +10,7 @@ If you are looking for something more complete then [`go-github`](https://github
 ### Usage
 
 ```go
-import "github.com/aixr/crusch"
+import "github.com/chrisweaver1/crusch"
 ```
 
 basic example
@@ -21,7 +21,7 @@ client.NewInstallationAuthFile(<ApplicationID>, <InstallationID>, <PEM keyfile l
 v := make(map[string]interface{})
 respose, err := client.GetJson(
     fmt.Sprintf("/repos/%s/%s/issues", <user>, <repo>), 
-    "assignee=aixr&state=open", &v)
+    "assignee=chrisweaver1&state=open", &v)
 ```
 
 Clients created through `crusch.New(<name>, <baseURL>)` or `crusch.NewDefault()` are added to a client pool, accessed via `crusch.Pool` variable, allowing you to get premade clients by name or authentication details.

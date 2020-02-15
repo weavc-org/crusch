@@ -1,4 +1,4 @@
-module github.com/aixr/crusch
+module github.com/chrisweaver1/crusch
 
 go 1.13
 
