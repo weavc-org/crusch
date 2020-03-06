@@ -1,143 +1,277 @@
 package crusch
 
 import (
+	"io/ioutil"
+	"net/http"
+	"reflect"
 	"testing"
 )
 
-func TestClient(t *testing.T) {
-
-	Pool = ClientPool{}
-
-	client1 := New("test_1", "test_1.github.com")
-	client2 := New("test_2", "test_2.github.com")
-	client3 := New("test_2", "test_3.github.com")
-	_ = client3
-	clientDefault := NewDefault()
-
-	if client1.Name != "test_1" || client1.BaseURL != "test_1.github.com" {
-		t.Error("Invalid client1: ", client1)
+var (
+	generalResponse map[string]string = map[string]string{
+		"hello": "hi",
+		"world": "earth",
 	}
+)
 
-	if client2.Name != "test_2" || client2.BaseURL != "test_2.github.com" {
-		t.Error("Invalid client2: ", client2)
-	}
-
-	if clientDefault.Name != "default" || clientDefault.BaseURL != "api.github.com" {
-		t.Error("Invalid default client: ", clientDefault)
-	}
-
-	clientDefault = clientDefault.Dispose()
-
-	if clientDefault != nil {
-		t.Error("clientDefault should be disposed: ", clientDefault)
+func TestNewGithubClient(t *testing.T) {
+	c := NewGithubClient("test.url", "http")
+	if c.URL != "test.url" || c.Protocol != "http" {
+		t.Errorf("valid client: returned %v", c)
 	}
 }
 
-func TestPool(t *testing.T) {
-	Pool = ClientPool{}
-
-	new1 := New("test_1", "test_1.github.com")
-	new2 := New("test_2", "test_2.github.com")
-	_ = new1
-	_ = new2
-
-	client2 := Pool.Get("test_2")
-	if client2.Name != "test_2" || client2.BaseURL != "test_2.github.com" {
-		t.Error("Invalid client2: ", client2)
+func TestGet(t *testing.T) {
+	client := setupClient(generalResponse)
+	type helloWorld struct {
+		Hello string `json:"hello"`
+		World string `json:"world"`
+	}
+	var v helloWorld
+	_, err := client.Get(setupAuth(), "/hello/world", nil, &v)
+	if err != nil {
+		t.Errorf("valid get: unexpected %v", err)
 	}
 
-	client2.Name = "test_2_updated"
-
-	client2Get := Pool.Get("test_2")
-	if client2Get != nil {
-		t.Error("found test_2 when shouldn't have: ", client2Get)
+	want := helloWorld{
+		Hello: "hi",
+		World: "earth",
 	}
 
-	oauthClient := NewDefault()
-	oauthClient.NewOAuth("testing_123", "")
-
-	applicationClient := NewDefault()
-	applicationClient.NewApplicationAuthFile(1234567, "random_key.pem")
-
-	installationClient := NewDefault()
-	installationClient.NewInstallationAuthFile(123456, 12345678, "random_key.pem")
-
-	applicationClientGet := Pool.GetByApplicationAuth(1234567)
-	oauthClientGet := Pool.GetByOauthToken("testing_123")
-	installationClientGet := Pool.GetByInstallationAuth(123456, 12345678)
-
-	if applicationClientGet == nil ||
-		applicationClientGet.Auth.AuthType != Application ||
-		applicationClientGet.Name != "default" ||
-		applicationClientGet.Auth.ApplicationID != 1234567 ||
-		applicationClientGet.Auth.InstallationID != 0 {
-		t.Error("application client invalid: ", applicationClientGet)
+	if !reflect.DeepEqual(v, want) {
+		t.Errorf("valid get: returned %v want %v", v, want)
 	}
 
-	if oauthClientGet == nil ||
-		oauthClientGet.Auth.AuthType != OAuth ||
-		oauthClientGet.Auth.ApplicationID != 0 ||
-		oauthClientGet.Auth.InstallationID != 0 ||
-		oauthClientGet.Auth.OAuthAccessToken != "testing_123" {
-		t.Error("oauth client invalid: ", oauthClientGet)
+	_, err = client.Get(setupAuth(), "/hello/world", nil, nil)
+	if err != nil {
+		t.Errorf("valid get, no binding: unexpected %v", err)
 	}
 
-	if installationClientGet == nil ||
-		installationClientGet.Auth.AuthType != Installation ||
-		installationClientGet.Auth.ApplicationID != 123456 ||
-		installationClientGet.Auth.InstallationID != 12345678 {
-		t.Error("installation client invalid: ", installationClientGet)
+	_, err = client.Get(setupAuth(), "/hello/world", "hello=hi&world=earth", nil)
+	if err != nil {
+		t.Errorf("valid get, querystring: unexpected %v", err)
 	}
 
-	applicationClientGet = Pool.GetByApplicationAuth(234567)
-	if applicationClientGet != nil {
-		t.Error("application client should be nil: ", applicationClientGet)
+	_, err = client.Get(setupAuth(), "/hello/world", 123, nil)
+	if err == nil {
+		t.Errorf("invalid get, bad querystring: unexpected nil error %v", err)
 	}
 
-	oauthClientGet = Pool.GetByOauthToken("40040400400400400000dkkk")
-	if oauthClientGet != nil {
-		t.Error("oauth client should be nil: ", oauthClientGet)
+	type badBinding struct {
+		w string
+		h string
+	}
+	b := badBinding{}
+	_, err = client.Get(setupAuth(), "/hello/world", nil, b)
+	if err == nil {
+		t.Errorf("invalid get, bad binding: unexpected nil error %v", err)
 	}
 
-	installationClientGet = Pool.GetByInstallationAuth(234567, 6969)
-	if installationClientGet != nil {
-		t.Error("installation client should be nil: ", installationClientGet)
+	client.Protocol = "http+_"
+	_, err = client.Get(setupAuth(), "/hello/world", nil, &v)
+	if err == nil {
+		t.Errorf("invalid get: unexpected %v", err)
 	}
 }
 
-func TestGetURL(t *testing.T) {
+func TestDelete(t *testing.T) {
+	client := setupClient(generalResponse)
 
-	Pool = ClientPool{}
-
-	client1 := New("1", "test_1.github.com")
-	client2 := New("2", "http://test_2.github.com")
-	client3 := New("3", "test_3.github.com")
-	clientDefault := NewDefault()
-
-	url1 := client1.GetURL()
-	if url1 != "https://test_1.github.com" {
-		t.Error("client1 url incorrect: ", url1)
+	_, err := client.Delete(setupAuth(), "/hello/world")
+	if err != nil {
+		t.Errorf("valid delete: unexpected %v", err)
 	}
 
-	url2 := client2.GetURL()
-	if url2 != "http://test_2.github.com" {
-		t.Error("client2 url incorrect: ", url2)
+	client.Protocol = "http+_"
+	_, err = client.Delete(setupAuth(), "/hello/world")
+	if err == nil {
+		t.Errorf("invalid delete: unexpected %v", err)
+	}
+}
+
+func TestPut(t *testing.T) {
+	client := setupClient(generalResponse)
+	type helloWorld struct {
+		Hello string `json:"hello"`
+		World string `json:"world"`
 	}
 
-	client3.Protocol = "http"
-	url3 := client3.GetURL()
-	if url3 != "http://test_3.github.com" {
-		t.Error("client3 url incorrect: ", url3)
+	var v helloWorld
+	_, err := client.Put(setupAuth(), "/hello/world", &helloWorld{Hello: "hi", World: "earth"}, &v)
+	if err != nil {
+		t.Errorf("valid put: unexpected %v", err)
 	}
 
-	client3.Protocol = "ftp"
-	url4 := client3.GetURL()
-	if url4 != "https://test_3.github.com" {
-		t.Error("client3 url incorrect: ", url3)
+	want := helloWorld{
+		Hello: "hi",
+		World: "earth",
 	}
 
-	urlDefault := clientDefault.GetURL()
-	if urlDefault != "https://api.github.com" {
-		t.Error("Default url incorrect: ", urlDefault)
+	if !reflect.DeepEqual(v, want) {
+		t.Errorf("valid put: returned %v want %v", v, want)
 	}
+
+	_, err = client.Put(setupAuth(), "/hello/world", nil, &v)
+	if err != nil {
+		t.Errorf("valid put: unexpected %v", err)
+	}
+
+	client.Protocol = "http+_"
+	_, err = client.Put(setupAuth(), "/hello/world", nil, &v)
+	if err == nil {
+		t.Errorf("invalid put: unexpected %v", err)
+	}
+}
+
+func TestPatch(t *testing.T) {
+	client := setupClient(generalResponse)
+	type helloWorld struct {
+		Hello string `json:"hello"`
+		World string `json:"world"`
+	}
+
+	var v helloWorld
+	_, err := client.Patch(setupAuth(), "/hello/world", &helloWorld{Hello: "hi", World: "earth"}, &v)
+	if err != nil {
+		t.Errorf("valid patch: unexpected %v", err)
+	}
+
+	want := helloWorld{
+		Hello: "hi",
+		World: "earth",
+	}
+
+	if !reflect.DeepEqual(v, want) {
+		t.Errorf("valid patch: returned %v want %v", v, want)
+	}
+
+	_, err = client.Patch(setupAuth(), "/hello/world", nil, &v)
+	if err != nil {
+		t.Errorf("valid patch: unexpected %v", err)
+	}
+
+	client.Protocol = "http+_"
+	_, err = client.Patch(setupAuth(), "/hello/world", nil, &v)
+	if err == nil {
+		t.Errorf("invalid patch: unexpected %v", err)
+	}
+}
+
+func TestPost(t *testing.T) {
+	client := setupClient(generalResponse)
+	type helloWorld struct {
+		Hello string `json:"hello"`
+		World string `json:"world"`
+	}
+
+	var v helloWorld
+	_, err := client.Post(setupAuth(), "/hello/world", &helloWorld{Hello: "hi", World: "earth"}, &v)
+	if err != nil {
+		t.Errorf("valid post: unexpected %v", err)
+	}
+
+	want := helloWorld{
+		Hello: "hi",
+		World: "earth",
+	}
+
+	if !reflect.DeepEqual(v, want) {
+		t.Errorf("valid post: returned %v want %v", v, want)
+	}
+
+	_, err = client.Post(setupAuth(), "/hello/world", nil, &v)
+	if err != nil {
+		t.Errorf("valid post: unexpected %v", err)
+	}
+
+	client.Protocol = "http+_"
+	_, err = client.Post(setupAuth(), "/hello/world", nil, &v)
+	if err == nil {
+		t.Errorf("invalid post: unexpected %v", err)
+	}
+}
+
+func TestParseQuery(t *testing.T) {
+	var s string = "hello=hi&world=earth"
+
+	query, err := parseQuery(s)
+	if err != nil {
+		t.Errorf("valid string query: unexpected %v", err)
+	}
+	if query != s {
+		t.Errorf("valid string query: returned %s want %s", query, s)
+	}
+
+	type queryStruct struct {
+		Hello string `url:"hello"`
+		World string `url:"world"`
+	}
+
+	query, err = parseQuery(&queryStruct{Hello: "hi", World: "earth"})
+	if err != nil {
+		t.Errorf("valid struct query: unexpected %v", err)
+	}
+	if query != s {
+		t.Errorf("valid struct query: returned %s want %s", query, s)
+	}
+
+	query, err = parseQuery(nil)
+	if err != nil {
+		t.Errorf("valid nil query: unexpected %v", err)
+	}
+	if query != "" {
+		t.Errorf("valid nil query: returned %s want %s", query, "")
+	}
+
+	query, err = parseQuery(123)
+	if err == nil {
+		t.Errorf("invalid number query: unexpected nil err")
+	}
+
+	var v map[interface{}]interface{} = map[interface{}]interface{}{
+		"hello": map[interface{}]interface{}{"world": "ah"},
+	}
+	query, err = parseQuery(v)
+	if err == nil {
+		t.Errorf("invalid struct query: unexpected nil err")
+	}
+}
+
+// the following methods are used for getting and setting different objects for testing purposes
+
+func setupClient(body interface{}) *Client {
+	client := NewGithubClient("doesnt.matter", "http")
+
+	var t http.RoundTripper = &transport{body: body}
+	httpClient := &http.Client{Transport: t}
+	client.SetHTTPClient(httpClient)
+
+	return client
+}
+
+func setupAuth() Authorizer {
+	return AuthorizerFunc(func() (string, error) {
+		return "bearer randombearertokenexample", nil
+	})
+}
+
+type transport struct {
+	body interface{}
+}
+
+func newTransport() *transport {
+	return &transport{}
+}
+
+func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
+	body, err := jsonifyBody(t.body)
+	if err != nil {
+		return nil, err
+	}
+	return &http.Response{
+		Status:     "200 OK",
+		StatusCode: 200,
+		Body:       ioutil.NopCloser(body),
+		Request:    req,
+	}, nil
 }
