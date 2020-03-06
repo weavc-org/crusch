@@ -1,133 +1,138 @@
 package crusch
 
 import (
-	"os"
-	"strings"
+	"crypto/rsa"
+	"fmt"
 	"testing"
-
-	"github.com/dgrijalva/jwt-go"
 )
 
-// TestApplication tests application authorization specific methods
-// but does not do full integration tests with Githubs api
-func TestApplication(t *testing.T) {
-	var appid int64 = 123456
+func TestRSAPrivateKeyFromPEMFile(t *testing.T) {
+
+	_, err := RSAPrivateKeyFromPEMFile("random_key.pem")
+	if err != nil {
+		t.Errorf("valid file: returned error: %v", err)
+	}
+
+	_, err = RSAPrivateKeyFromPEMFile("random_key_non_existant.pem")
+	if err == nil {
+		t.Errorf("invalid file: returned no error")
+	}
+
+	_, err = RSAPrivateKeyFromPEMFile("readme.md")
+	if err == nil {
+		t.Errorf("valid file invalid key: returned no error")
+	}
+}
+
+func TestApplicationAuthorizer(t *testing.T) {
+	key := getKey()
+	auth, err := NewApplicationAuth(6000, key)
+	if err != nil {
+		t.Errorf("application auth: unexpected %v", err)
+	}
+	defer auth.Dispose()
+
+	if auth.ApplicationID != 6000 {
+		t.Errorf(
+			"application auth: application id %v want %v",
+			auth.ApplicationID, 6000)
+	}
+
+	if auth.Key != key {
+		t.Errorf(
+			"application auth: application id %v want %v",
+			auth.ApplicationID, 6000)
+	}
+
+	_, err = auth.GetHeader()
+	if err != nil {
+		t.Errorf("application auth: unexpected %v", err)
+	}
+
+	// test jwt claims etc
+}
+
+func TestOAuthAuthorizer(t *testing.T) {
+	token := "123456789abcd"
+	auth, err := NewOAuth(token)
+	if err != nil {
+		t.Errorf("oauth auth: unexpected %v", err)
+	}
+	defer auth.Dispose()
+
+	if auth.Token != token {
+		t.Errorf(
+			"oauth auth: token %v want %v",
+			auth.Token, token)
+	}
+
+	h, err := auth.GetHeader()
+	if err != nil {
+		t.Errorf("oauth auth: unexpected %v", err)
+	}
+
+	if h != fmt.Sprintf("bearer %s", token) {
+		t.Errorf(
+			"oauth auth: header %v want %v",
+			auth.Token, fmt.Sprintf("bearer %s", token))
+	}
+}
+
+func TestInstallationAuthorizer(t *testing.T) {
+	var appID int64 = 123456
+	var installationID int64 = 678903
+
+	type tokenResponse struct {
+		Token string `json:"token"`
+	}
+
+	client := setupClient(tokenResponse{Token: "testtokenstring"})
+	key := getKey()
+	auth, err := NewInstallationAuth(appID, installationID, key)
+	auth.Client = client
+	if err != nil {
+		t.Errorf("installation auth: unexpected %v", err)
+	}
+	defer auth.Dispose()
+
+	if auth.ApplicationID != appID {
+		t.Errorf(
+			"installation auth: applicationID %v want %v",
+			auth.ApplicationID, appID)
+	}
+
+	if auth.InstallationID != installationID {
+		t.Errorf(
+			"installation auth: applicationID %v want %v",
+			auth.ApplicationID, appID)
+	}
+
+	if auth.Key != key {
+		t.Errorf(
+			"installation auth: key %v want %v",
+			auth.Key, key)
+	}
+
+	h, err := auth.GetHeader()
+	if err != nil {
+		t.Errorf("installation auth: unexpected %v", err)
+	}
+
+	if h != "token testtokenstring" {
+		t.Errorf("installation auth: returned %v want %s", h, "token testtokenstring")
+	}
+
+	// this time should go thorugh lastUsed
+	h, err = auth.GetHeader()
+	if err != nil {
+		t.Errorf("installation auth: unexpected %v", err)
+	}
+}
+
+func getKey() *rsa.PrivateKey {
 	key, err := RSAPrivateKeyFromPEMFile("random_key.pem")
 	if err != nil {
-		t.Log("Failed to decode pem file: ", err)
-		t.FailNow()
+		panic(err)
 	}
-
-	client := NewDefault()
-	client.NewApplicationAuth(appid, key)
-
-	auth, err := client.Authorization()
-	if err != nil {
-		t.Log("Failed to generate authorization header: ", err)
-		t.FailNow()
-	}
-
-	authToken := strings.TrimLeft(auth, "Bearer")
-	authToken = strings.TrimSpace(authToken)
-
-	claims := jwt.MapClaims{}
-	token, err := jwt.ParseWithClaims(authToken, claims, func(t *jwt.Token) (interface{}, error) {
-		return &key.PublicKey, nil
-	})
-	if err != nil {
-		t.Log("Failed jwt parse: ", err)
-		t.FailNow()
-	}
-
-	_ = token
-
-}
-
-// TestApplicationIntegration will do full integration testing with Githubs API
-// requires private_key and application_id environment variables to be set and valid
-func TestApplicationIntegration(t *testing.T) {
-	privateKey := os.Getenv("private_key")
-	applicationID := os.Getenv("application_id")
-
-	if len(strings.TrimSpace(privateKey)) == 0 ||
-		len(strings.TrimSpace(applicationID)) == 0 {
-		t.Skip("private_key and application_id environment variables expected")
-		return
-	}
-}
-
-// TestInstallation tests installation authorization specific methods
-// but does not do full integration tests with Githubs api
-// since this requires Githubs api to generate a valid installation token it doesn't do much
-func TestInstallation(t *testing.T) {
-	var appid int64 = 123456
-	var instid int64 = 45678910
-	key, err := RSAPrivateKeyFromPEMFile("random_key.pem")
-	if err != nil {
-		t.Log("Failed to decode pem file: ", err)
-		t.FailNow()
-	}
-
-	client := NewDefault()
-	client.NewInstallationAuth(appid, instid, key)
-}
-
-// TestInstallationIntegration will do full integration testing with Githubs API
-// requires private_key, application_id and installation_id environment variables to be set and valid
-func TestInstallationIntegration(t *testing.T) {
-	privateKey := os.Getenv("private_key")
-	applicationID := os.Getenv("application_id")
-	installationID := os.Getenv("installation_id")
-
-	if len(strings.TrimSpace(privateKey)) == 0 ||
-		len(strings.TrimSpace(applicationID)) == 0 ||
-		len(strings.TrimSpace(installationID)) == 0 {
-		t.Skip("private_key, application_id and installation_id environment variables expected")
-		return
-	}
-}
-
-// TestOauth tests oauth authorization specific methods
-// but does not do full integration tests with Githubs api
-// since this requires Githubs api to validate a token, it doesn't do much
-func TestOauth(t *testing.T) {
-
-	client := NewDefault()
-	client.NewOAuth("qwertyuiop", "")
-
-	header, err := client.Authorization()
-	if err != nil {
-		t.Log("Failed to generate authorization header: ", err)
-		t.FailNow()
-	}
-
-	if header != "bearer qwertyuiop" {
-		t.Log("Incorrect header created: ", header)
-		t.FailNow()
-	}
-
-	client.NewOAuth("asdfghjkl", "token")
-	header, err = client.Authorization()
-	if err != nil {
-		t.Log("Failed to generate authorization header: ", err)
-		t.FailNow()
-	}
-
-	if header != "token asdfghjkl" {
-		t.Log("Incorrect header created: ", header)
-		t.FailNow()
-	}
-
-}
-
-// TestOauthIntegration will do full integration testing with Githubs API
-// requires oauth_token environment variable to be set and valid
-func TestOauthIntegration(t *testing.T) {
-	oauthToken := os.Getenv("oauth_token")
-
-	if len(strings.TrimSpace(oauthToken)) == 0 {
-		t.Skip("oauth_token environment variables expected")
-		return
-	}
-
+	return key
 }

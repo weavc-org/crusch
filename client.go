@@ -1,142 +1,251 @@
 package crusch
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"strings"
+	"io"
+	"net/http"
+	"reflect"
+
+	"github.com/google/go-querystring/query"
 )
 
-// Client for making http requests to Githubs v3 json api
+// Client is used to process requests to and from Githubs v3 api
+// URL and protocols can be changed
 type Client struct {
-	Name     string
-	BaseURL  string
+	URL      string
 	Protocol string
-	Auth     *Authorization
+	Headers  []header
+	client   *http.Client
 }
 
-// NewDefault creates a new Client with default values and no auth
-func NewDefault() *Client {
-	return New("default", "api.github.com")
-}
-
-// New creates a new Client struct using given arguments
-func New(name string, baseURL string) *Client {
-	s := Client{
-		Name:     name,
-		BaseURL:  baseURL,
-		Protocol: "https",
-	}
-	Pool.Pool = append(Pool.Pool, &s)
-	return &s
-}
-
-// GetURL looks at values in client and formats the full url
-// this method isn't exactly fool-proof but it should kind of work...
-func (s *Client) GetURL() string {
-	// sets defaults
-	protocol := "https"
-	url := "api.github.com"
-
-	// if there is a protocol set
-	if len(strings.TrimSpace(s.Protocol)) != 0 {
-		// if the set protocol is 'http' or 'https' use it
-		if s.Protocol == "http" || s.Protocol == "https" {
-			protocol = s.Protocol
-		}
-	}
-
-	// check if baseurl has value, use it
-	if len(strings.TrimSpace(s.BaseURL)) != 0 {
-		url = s.BaseURL
-	}
-
-	// if there isn't a prefix already set on baseurl
-	if !strings.HasPrefix(s.BaseURL, "http:") &&
-		!strings.HasPrefix(s.BaseURL, "https:") {
-		url = fmt.Sprintf("%s://%s", protocol, url)
-	}
-
-	return url
-}
-
-// Dispose of client and references to it
-func (s *Client) Dispose() *Client {
-	i, err := Pool.getClientIndex(s)
-	if err != nil {
-		Pool.Pool = append(Pool.Pool[:i], Pool.Pool[i+1:]...)
-	}
-
-	s.Auth = nil
-	s.BaseURL = ""
-	s.Name = ""
-	s = nil
-
-	return s
-}
-
-// ClientPool stores a slice of Clients created in this session
-// Clients are automatically added when created using New or NewDefault
-type ClientPool struct {
-	Pool []*Client
+type header struct {
+	Name  string
+	Value string
 }
 
 var (
-	// Pool is an array of Clients used within this session
-	Pool ClientPool = ClientPool{}
+	// GithubClient is the default GithubClient, using standard API url and https
+	GithubClient = NewGithubClient("api.github.com", "https")
 )
 
-// GetByInstallationAuth tries to find an existing installation client that matches the auth details
-func (cp *ClientPool) GetByInstallationAuth(applicationID int64, installationID int64) *Client {
-	for _, Client := range cp.Pool {
-		if Client.Auth != nil && Client.Auth.AuthType == Installation &&
-			Client.Auth.ApplicationID == applicationID &&
-			Client.Auth.InstallationID == installationID {
-			return Client
-		}
+// NewGithubClient creates and returns a new GithubClient structure with given values
+func NewGithubClient(url string, protocol string) *Client {
+	c := &Client{
+		URL:      url,
+		Protocol: protocol,
+		client:   http.DefaultClient,
 	}
-	return nil
+	c.AddHeader("Accept", "application/vnd.github.machine-man-preview+json")
+	return c
 }
 
-// GetByInstallationAuth tries to find an existing installation client that matches the auth details
-func (cp *ClientPool) getClientIndex(c *Client) (int, error) {
-	for i, client := range cp.Pool {
-		if c == client {
-			return i, nil
-		}
-	}
-	return 0, fmt.Errorf("No client found")
+// SetHTTPClient allows the http.Client on GithubClient to be changed
+// http.DefaultClient is used by default
+func (c *Client) SetHTTPClient(client *http.Client) {
+	c.client = client
 }
 
-// GetByApplicationAuth tries to find an existing application client that matches the auth details
-func (cp *ClientPool) GetByApplicationAuth(applicationID int64) *Client {
-	for _, Client := range cp.Pool {
-		if Client.Auth != nil && Client.Auth.AuthType == Application &&
-			Client.Auth.ApplicationID == applicationID &&
-			Client.Auth.InstallationID == 0 {
-			return Client
-		}
-	}
-	return nil
+// AddHeader adds headers to the array of headers used in the request
+func (c *Client) AddHeader(name string, value string) {
+	c.RemoveHeader(name)
+	h := header{Name: name, Value: value}
+	c.Headers = append(c.Headers, h)
 }
 
-// GetByOauthToken tries to find an existing application client that matches the auth details
-func (cp *ClientPool) GetByOauthToken(token string) *Client {
-	for _, Client := range cp.Pool {
-		if Client.Auth != nil &&
-			Client.Auth.AuthType == OAuth &&
-			Client.Auth.OAuthAccessToken == token {
-			return Client
+// RemoveHeader headers to the array of headers used in the request
+func (c *Client) RemoveHeader(name string) {
+	for i, h := range c.Headers {
+		if h.Name == name {
+			c.Headers = append(c.Headers[:i], c.Headers[i+1:]...)
 		}
 	}
-	return nil
 }
 
-// Get will find a client by the given name,
-// if multiple are in the array, only the first will be returned
-func (cp *ClientPool) Get(name string) *Client {
-	for _, Client := range cp.Pool {
-		if Client.Name == name {
-			return Client
+// Get makes GET requests using the providers information
+// Additional parameters/querystring can be passed through either as a string, struct or left as nil
+// The response body will be bound to v
+func (c *Client) Get(authorizer Authorizer, uri string, params interface{}, v interface{}) (*http.Response, error) {
+	var req *http.Request
+
+	query, err := parseQuery(params)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err = http.NewRequest(
+		http.MethodGet,
+		fmt.Sprintf("%s://%s/%s?%s", c.Protocol, c.URL, uri, query),
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create request: %v", err)
+	}
+
+	return c.Do(authorizer, req, v)
+}
+
+// Delete makes DELETE using the providers information
+func (c *Client) Delete(authorizer Authorizer, uri string) (*http.Response, error) {
+	var req *http.Request
+
+	req, err := http.NewRequest(
+		http.MethodDelete,
+		fmt.Sprintf("%s://%s/%s", c.Protocol, c.URL, uri),
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create request: %v", err)
+	}
+
+	return c.Do(authorizer, req, nil)
+}
+
+// Put makes PUT requests using the providers information
+// A request body can be passed through and attempt to be converted to JSON, this can also be left as nil
+// The response body will be bound to v
+func (c *Client) Put(authorizer Authorizer, uri string, body interface{}, v interface{}) (*http.Response, error) {
+	var req *http.Request
+
+	b, err := jsonifyBody(body)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err = http.NewRequest(
+		http.MethodPut,
+		fmt.Sprintf("%s://%s/%s", c.Protocol, c.URL, uri),
+		b,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create request: %v", err)
+	}
+
+	return c.Do(authorizer, req, v)
+}
+
+// Patch makes PATCH requests using the providers information
+// A request body can be passed through and attempt to be converted to JSON, this can also be left as nil
+// The response body will be bound to v
+func (c *Client) Patch(authorizer Authorizer, uri string, body interface{}, v interface{}) (*http.Response, error) {
+	var req *http.Request
+
+	b, err := jsonifyBody(body)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err = http.NewRequest(
+		http.MethodPatch,
+		fmt.Sprintf("%s://%s/%s", c.Protocol, c.URL, uri),
+		b,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create request: %v", err)
+	}
+
+	return c.Do(authorizer, req, v)
+}
+
+// Post makes POST requests using the providers information
+// A request body can be passed through and attempt to be converted to JSON, this can also be left as nil
+// The response body will be bound to v
+func (c *Client) Post(authorizer Authorizer, uri string, body interface{}, v interface{}) (*http.Response, error) {
+	var req *http.Request
+
+	b, err := jsonifyBody(body)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err = http.NewRequest(
+		http.MethodPost,
+		fmt.Sprintf("%s://%s/%s", c.Protocol, c.URL, uri),
+		b,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create request: %v", err)
+	}
+
+	return c.Do(authorizer, req, v)
+}
+
+// Do performs the given request using the providers details
+// This will also bind the JSON response to v
+func (c *Client) Do(authorizer Authorizer, req *http.Request, v interface{}) (*http.Response, error) {
+	if req.Header == nil {
+		req.Header = http.Header{}
+	}
+
+	auth, err := authorizer.GetHeader()
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", auth)
+
+	for _, h := range c.Headers {
+		req.Header.Add(h.Name, h.Value)
+	}
+
+	res, err := c.client.Do(req)
+
+	if v != nil && (res.StatusCode >= 200 && res.StatusCode < 300) {
+		decoder := json.NewDecoder(res.Body)
+		err = decoder.Decode(v)
+		if err != nil {
+			return res, err
 		}
 	}
-	return nil
+
+	return res, err
+}
+
+func parseQuery(params interface{}) (string, error) {
+	switch v := params.(type) {
+	case string:
+		return v, nil
+	case nil:
+		return "", nil
+	default:
+		val := reflect.ValueOf(params)
+		if val.Kind() == reflect.Struct {
+			return "", fmt.Errorf("Unknown type of params, only takes string, struct or nil")
+		}
+		q := reflect.ValueOf(params)
+		if q.Kind() == reflect.Ptr && q.IsNil() {
+			return "", nil
+		}
+
+		qs, err := query.Values(params)
+		if err != nil {
+			return "", err
+		}
+
+		return qs.Encode(), nil
+	}
+
+}
+
+func jsonifyBody(body interface{}) (*bytes.Buffer, error) {
+
+	if body == nil {
+		return bytes.NewBufferString(""), nil
+	}
+
+	var buf io.ReadWriter
+	buf = &bytes.Buffer{}
+	enc := json.NewEncoder(buf)
+	enc.SetEscapeHTML(false)
+	err := enc.Encode(body)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to encode body: %v", err)
+	}
+
+	buffer, ok := buf.(*bytes.Buffer)
+	if !ok {
+		return nil, fmt.Errorf("Failed to create buffer")
+	}
+
+	return buffer, nil
 }
