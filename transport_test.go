@@ -11,7 +11,7 @@ func TestAttachAuthorizer(t *testing.T) {
 
 	a, _ := NewOAuth("testingoauthroundtripperwrapper")
 
-	c, err := AttachAuthorizer(a, c)
+	err := AttachAuthorizer(a, c)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

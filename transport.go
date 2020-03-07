@@ -24,9 +24,9 @@ func (t *cruschTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 // AttachAuthorizer attaches a new http.Transport layer that adds authorization headers to the request
 // this new layer wraps any existing transport layers
 // this can be used in conjuction with go-github to provide authorization headers to requests
-func AttachAuthorizer(authorizer Authorizer, httpClient *http.Client) (*http.Client, error) {
+func AttachAuthorizer(authorizer Authorizer, httpClient *http.Client) error {
 	ct := cruschTransport{authorizer, httpClient.Transport}
 
 	httpClient.Transport = &ct
-	return httpClient, nil
+	return nil
 }
