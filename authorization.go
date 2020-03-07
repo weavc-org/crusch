@@ -10,9 +10,6 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
-// TODO
-// implement RoundTripper interface to work the go-github libary aswell
-
 // Authorizer is used in the client mehtods to provide
 // Authorization headers to requests
 type Authorizer interface {
@@ -202,4 +199,3 @@ type LastUsed struct {
 	validUntil int64
 	time       int64
 }
-
