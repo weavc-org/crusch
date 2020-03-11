@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 
 	"github.com/google/go-querystring/query"
 )
@@ -74,6 +75,8 @@ func (c *Client) Get(authorizer Authorizer, uri string, params interface{}, v in
 		return nil, err
 	}
 
+	uri = strings.TrimLeft(uri, "/")
+
 	req, err = http.NewRequest(
 		http.MethodGet,
 		fmt.Sprintf("%s://%s/%s?%s", c.Protocol, c.URL, uri, query),
@@ -89,6 +92,8 @@ func (c *Client) Get(authorizer Authorizer, uri string, params interface{}, v in
 // Delete makes DELETE using the providers information
 func (c *Client) Delete(authorizer Authorizer, uri string) (*http.Response, error) {
 	var req *http.Request
+
+	uri = strings.TrimLeft(uri, "/")
 
 	req, err := http.NewRequest(
 		http.MethodDelete,
@@ -107,6 +112,8 @@ func (c *Client) Delete(authorizer Authorizer, uri string) (*http.Response, erro
 // The response body will be bound to v
 func (c *Client) Put(authorizer Authorizer, uri string, body interface{}, v interface{}) (*http.Response, error) {
 	var req *http.Request
+
+	uri = strings.TrimLeft(uri, "/")
 
 	b, err := jsonifyBody(body)
 	if err != nil {
@@ -136,6 +143,8 @@ func (c *Client) Patch(authorizer Authorizer, uri string, body interface{}, v in
 		return nil, err
 	}
 
+	uri = strings.TrimLeft(uri, "/")
+
 	req, err = http.NewRequest(
 		http.MethodPatch,
 		fmt.Sprintf("%s://%s/%s", c.Protocol, c.URL, uri),
@@ -158,6 +167,8 @@ func (c *Client) Post(authorizer Authorizer, uri string, body interface{}, v int
 	if err != nil {
 		return nil, err
 	}
+
+	uri = strings.TrimLeft(uri, "/")
 
 	req, err = http.NewRequest(
 		http.MethodPost,
@@ -189,6 +200,9 @@ func (c *Client) Do(authorizer Authorizer, req *http.Request, v interface{}) (*h
 	}
 
 	res, err := c.client.Do(req)
+	if err != nil {
+		return res, err
+	}
 
 	if v != nil && (res.StatusCode >= 200 && res.StatusCode < 300) {
 		decoder := json.NewDecoder(res.Body)
@@ -196,6 +210,11 @@ func (c *Client) Do(authorizer Authorizer, req *http.Request, v interface{}) (*h
 		if err != nil {
 			return res, err
 		}
+	} else if res.StatusCode >= 400 && res.Body != nil {
+		// return the response body as error string if request failed/errored
+		buf := new(bytes.Buffer)
+		buf.ReadFrom(res.Body)
+		err = fmt.Errorf("%v", buf.String())
 	}
 
 	return res, err
@@ -210,7 +229,7 @@ func parseQuery(params interface{}) (string, error) {
 	default:
 		val := reflect.ValueOf(params)
 		if val.Kind() == reflect.Struct {
-			return "", fmt.Errorf("Unknown type of params, only takes string, struct or nil")
+			return "", fmt.Errorf("Unknown type of params, must be string, struct or nil")
 		}
 		q := reflect.ValueOf(params)
 		if q.Kind() == reflect.Ptr && q.IsNil() {

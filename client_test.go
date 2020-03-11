@@ -9,10 +9,15 @@ import (
 
 var (
 	generalResponse map[string]string = map[string]string{
-		"hello": "hi",
-		"world": "earth",
+		"mogolade": "crusch",
+		"one":      "1",
 	}
 )
+
+type m struct {
+	Mogolade string `json:"mogolade" url:"mogolade"`
+	One      string `json:"one" url:"one"`
+}
 
 func TestNewGithubClient(t *testing.T) {
 	c := NewGithubClient("test.url", "http")
@@ -23,36 +28,33 @@ func TestNewGithubClient(t *testing.T) {
 
 func TestGet(t *testing.T) {
 	client := setupClient(generalResponse)
-	type helloWorld struct {
-		Hello string `json:"hello"`
-		World string `json:"world"`
-	}
-	var v helloWorld
-	_, err := client.Get(setupAuth(), "/hello/world", nil, &v)
+
+	var v m
+	_, err := client.Get(setupAuth(), "test/uri", nil, &v)
 	if err != nil {
 		t.Errorf("valid get: unexpected %v", err)
 	}
 
-	want := helloWorld{
-		Hello: "hi",
-		World: "earth",
+	want := m{
+		Mogolade: "crusch",
+		One:      "1",
 	}
 
 	if !reflect.DeepEqual(v, want) {
 		t.Errorf("valid get: returned %v want %v", v, want)
 	}
 
-	_, err = client.Get(setupAuth(), "/hello/world", nil, nil)
+	_, err = client.Get(setupAuth(), "test/uri", nil, nil)
 	if err != nil {
 		t.Errorf("valid get, no binding: unexpected %v", err)
 	}
 
-	_, err = client.Get(setupAuth(), "/hello/world", "hello=hi&world=earth", nil)
+	_, err = client.Get(setupAuth(), "test/uri", "a=b&c=1", nil)
 	if err != nil {
 		t.Errorf("valid get, querystring: unexpected %v", err)
 	}
 
-	_, err = client.Get(setupAuth(), "/hello/world", 123, nil)
+	_, err = client.Get(setupAuth(), "test/uri", 123, nil)
 	if err == nil {
 		t.Errorf("invalid get, bad querystring: unexpected nil error %v", err)
 	}
@@ -62,13 +64,13 @@ func TestGet(t *testing.T) {
 		h string
 	}
 	b := badBinding{}
-	_, err = client.Get(setupAuth(), "/hello/world", nil, b)
+	_, err = client.Get(setupAuth(), "test/uri", nil, b)
 	if err == nil {
 		t.Errorf("invalid get, bad binding: unexpected nil error %v", err)
 	}
 
 	client.Protocol = "http+_"
-	_, err = client.Get(setupAuth(), "/hello/world", nil, &v)
+	_, err = client.Get(setupAuth(), "test/uri", nil, &v)
 	if err == nil {
 		t.Errorf("invalid get: unexpected %v", err)
 	}
@@ -77,13 +79,13 @@ func TestGet(t *testing.T) {
 func TestDelete(t *testing.T) {
 	client := setupClient(generalResponse)
 
-	_, err := client.Delete(setupAuth(), "/hello/world")
+	_, err := client.Delete(setupAuth(), "test/uri")
 	if err != nil {
 		t.Errorf("valid delete: unexpected %v", err)
 	}
 
 	client.Protocol = "http+_"
-	_, err = client.Delete(setupAuth(), "/hello/world")
+	_, err = client.Delete(setupAuth(), "test/uri")
 	if err == nil {
 		t.Errorf("invalid delete: unexpected %v", err)
 	}
@@ -91,33 +93,29 @@ func TestDelete(t *testing.T) {
 
 func TestPut(t *testing.T) {
 	client := setupClient(generalResponse)
-	type helloWorld struct {
-		Hello string `json:"hello"`
-		World string `json:"world"`
-	}
 
-	var v helloWorld
-	_, err := client.Put(setupAuth(), "/hello/world", &helloWorld{Hello: "hi", World: "earth"}, &v)
+	var v m
+	_, err := client.Put(setupAuth(), "test/uri", &m{Mogolade: "crusch", One: "1"}, &v)
 	if err != nil {
 		t.Errorf("valid put: unexpected %v", err)
 	}
 
-	want := helloWorld{
-		Hello: "hi",
-		World: "earth",
+	want := m{
+		Mogolade: "crusch",
+		One:      "1",
 	}
 
 	if !reflect.DeepEqual(v, want) {
 		t.Errorf("valid put: returned %v want %v", v, want)
 	}
 
-	_, err = client.Put(setupAuth(), "/hello/world", nil, &v)
+	_, err = client.Put(setupAuth(), "test/uri", nil, &v)
 	if err != nil {
 		t.Errorf("valid put: unexpected %v", err)
 	}
 
 	client.Protocol = "http+_"
-	_, err = client.Put(setupAuth(), "/hello/world", nil, &v)
+	_, err = client.Put(setupAuth(), "test/uri", nil, &v)
 	if err == nil {
 		t.Errorf("invalid put: unexpected %v", err)
 	}
@@ -125,33 +123,29 @@ func TestPut(t *testing.T) {
 
 func TestPatch(t *testing.T) {
 	client := setupClient(generalResponse)
-	type helloWorld struct {
-		Hello string `json:"hello"`
-		World string `json:"world"`
-	}
 
-	var v helloWorld
-	_, err := client.Patch(setupAuth(), "/hello/world", &helloWorld{Hello: "hi", World: "earth"}, &v)
+	var v m
+	_, err := client.Patch(setupAuth(), "test/uri", &m{Mogolade: "crusch", One: "1"}, &v)
 	if err != nil {
 		t.Errorf("valid patch: unexpected %v", err)
 	}
 
-	want := helloWorld{
-		Hello: "hi",
-		World: "earth",
+	want := m{
+		Mogolade: "crusch",
+		One:      "1",
 	}
 
 	if !reflect.DeepEqual(v, want) {
 		t.Errorf("valid patch: returned %v want %v", v, want)
 	}
 
-	_, err = client.Patch(setupAuth(), "/hello/world", nil, &v)
+	_, err = client.Patch(setupAuth(), "test/uri", nil, &v)
 	if err != nil {
 		t.Errorf("valid patch: unexpected %v", err)
 	}
 
 	client.Protocol = "http+_"
-	_, err = client.Patch(setupAuth(), "/hello/world", nil, &v)
+	_, err = client.Patch(setupAuth(), "test/uri", nil, &v)
 	if err == nil {
 		t.Errorf("invalid patch: unexpected %v", err)
 	}
@@ -159,40 +153,36 @@ func TestPatch(t *testing.T) {
 
 func TestPost(t *testing.T) {
 	client := setupClient(generalResponse)
-	type helloWorld struct {
-		Hello string `json:"hello"`
-		World string `json:"world"`
-	}
 
-	var v helloWorld
-	_, err := client.Post(setupAuth(), "/hello/world", &helloWorld{Hello: "hi", World: "earth"}, &v)
+	var v m
+	_, err := client.Post(setupAuth(), "test/uri", &m{Mogolade: "crusch", One: "1"}, &v)
 	if err != nil {
 		t.Errorf("valid post: unexpected %v", err)
 	}
 
-	want := helloWorld{
-		Hello: "hi",
-		World: "earth",
+	want := m{
+		Mogolade: "crusch",
+		One:      "1",
 	}
 
 	if !reflect.DeepEqual(v, want) {
 		t.Errorf("valid post: returned %v want %v", v, want)
 	}
 
-	_, err = client.Post(setupAuth(), "/hello/world", nil, &v)
+	_, err = client.Post(setupAuth(), "test/uri", nil, &v)
 	if err != nil {
 		t.Errorf("valid post: unexpected %v", err)
 	}
 
 	client.Protocol = "http+_"
-	_, err = client.Post(setupAuth(), "/hello/world", nil, &v)
+	_, err = client.Post(setupAuth(), "test/uri", nil, &v)
 	if err == nil {
 		t.Errorf("invalid post: unexpected %v", err)
 	}
 }
 
 func TestParseQuery(t *testing.T) {
-	var s string = "hello=hi&world=earth"
+	var s string = "mogolade=crusch&one=1"
 
 	query, err := parseQuery(s)
 	if err != nil {
@@ -202,12 +192,7 @@ func TestParseQuery(t *testing.T) {
 		t.Errorf("valid string query: returned %s want %s", query, s)
 	}
 
-	type queryStruct struct {
-		Hello string `url:"hello"`
-		World string `url:"world"`
-	}
-
-	query, err = parseQuery(&queryStruct{Hello: "hi", World: "earth"})
+	query, err = parseQuery(&m{Mogolade: "crusch", One: "1"})
 	if err != nil {
 		t.Errorf("valid struct query: unexpected %v", err)
 	}
@@ -229,7 +214,7 @@ func TestParseQuery(t *testing.T) {
 	}
 
 	var v map[interface{}]interface{} = map[interface{}]interface{}{
-		"hello": map[interface{}]interface{}{"world": "ah"},
+		"mogolade": map[interface{}]interface{}{"crusch": "1"},
 	}
 	query, err = parseQuery(v)
 	if err == nil {
@@ -242,7 +227,7 @@ func TestParseQuery(t *testing.T) {
 func setupClient(body interface{}) *Client {
 	client := NewGithubClient("doesnt.matter", "http")
 
-	var t http.RoundTripper = &transport{body: body}
+	var t http.RoundTripper = &testTransport{body: body}
 	httpClient := &http.Client{Transport: t}
 	client.SetHTTPClient(httpClient)
 
@@ -255,15 +240,15 @@ func setupAuth() Authorizer {
 	})
 }
 
-type transport struct {
+type testTransport struct {
 	body interface{}
 }
 
-func newTransport() *transport {
-	return &transport{}
+func newTransport() *testTransport {
+	return &testTransport{}
 }
 
-func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	body, err := jsonifyBody(t.body)
 	if err != nil {
 		return nil, err

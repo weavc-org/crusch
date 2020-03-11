@@ -5,12 +5,12 @@ import (
 	"net/http"
 )
 
-type cruschTransport struct {
+type transport struct {
 	authorizer Authorizer
 	rt         http.RoundTripper
 }
 
-func (t *cruschTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	h, err := t.authorizer.GetHeader()
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get authorization header: %v", err)
@@ -25,7 +25,7 @@ func (t *cruschTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 // this new layer wraps any existing transport layers
 // this can be used in conjuction with go-github to provide authorization headers to requests
 func AttachAuthorizer(authorizer Authorizer, httpClient *http.Client) error {
-	ct := cruschTransport{authorizer, httpClient.Transport}
+	ct := transport{authorizer, httpClient.Transport}
 
 	httpClient.Transport = &ct
 	return nil

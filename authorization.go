@@ -10,19 +10,18 @@ import (
 	jwt "github.com/dgrijalva/jwt-go"
 )
 
-// Authorizer is used in the client mehtods to provide
-// Authorization headers to requests
+// Authorizer implements a GetHeader() method which
+// returns the value used inside the authorization header i.e. bearer token
+// It is used inside client request methods and provides the request with authorization headers
 type Authorizer interface {
 	GetHeader() (string, error)
 }
 
-// AuthorizerFunc follows the design of http.Handler
-// It can be used as a lightweight or wrapper implementation
-// of the Authorizer interface
+// AuthorizerFunc is a wrapper for the Authorizer interface
+// it follows the a similar design to http.Handler
 type AuthorizerFunc func() (string, error)
 
-// GetHeader wraps the AuthorizerFunc type and implements the
-// Authorizer interface
+// GetHeader wraps AuthorizerFunc, implementing the Authorizer interface
 func (a AuthorizerFunc) GetHeader() (string, error) {
 	return a()
 }
@@ -49,7 +48,7 @@ func NewInstallationAuth(applicationID int64, installationID int64, key *rsa.Pri
 	return a, nil
 }
 
-// NewOAuth generates a new ApplicationAuth structure using given values
+// NewOAuth generates and returns an OAuth authorizer that uses given values
 func NewOAuth(token string) (*OAuth, error) {
 	a := &OAuth{Token: token}
 	return a, nil
@@ -89,8 +88,9 @@ func (a *ApplicationAuth) GetHeader() (string, error) {
 }
 
 // InstallationAuth allows applications to authenticate as an installation against Githubs API
-// Uses the ApplcationID and Key to generate an ApplicationAuth which is to authenticate against Githubs api
-// and get an access token for the given InstallationID
+// Uses the ApplcationID and Key to generate an ApplicationAuth which is inturn used to get
+// installation token from githubs api. This will also store the Last used header and time instead of
+// getting a new token for each request.
 // https://developer.github.com/v3/apps/#create-a-new-installation-token
 type InstallationAuth struct {
 	ApplicationID  int64
@@ -132,26 +132,30 @@ func (a *InstallationAuth) GetHeader() (string, error) {
 		client = GithubClient
 	}
 
-	var v map[string]interface{}
 	auth, err := NewApplicationAuth(a.ApplicationID, a.Key)
 	if err != nil {
 		return "", fmt.Errorf("unable to create application authorizer: %v", err)
 	}
 
+	var v map[string]interface{}
 	res, err := client.Post(
 		auth,
-		fmt.Sprintf("/app/installations/%d/access_tokens", a.InstallationID),
+		fmt.Sprintf("app/installations/%d/access_tokens", a.InstallationID),
 		nil,
 		&v,
 	)
 
-	if res.StatusCode != 200 {
-		return "", fmt.Errorf("invalid response from api: %d", res.StatusCode)
+	if err != nil {
+		return "", err
+	}
+
+	if res.StatusCode != 201 && res.StatusCode != 200 {
+		return "", fmt.Errorf("%d error when trying to create access token", res.StatusCode)
 	}
 
 	t, ok := v["token"].(string)
 	if !ok {
-		return "", fmt.Errorf("error mapping result")
+		return "", fmt.Errorf("error mapping token value")
 	}
 
 	a.header = fmt.Sprintf("token %s", t)

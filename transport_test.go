@@ -6,7 +6,7 @@ import (
 )
 
 func TestAttachAuthorizer(t *testing.T) {
-	var rt http.RoundTripper = &transport{body: "test 123"}
+	var rt http.RoundTripper = &testTransport{body: "test 123"}
 	c := &http.Client{Transport: rt}
 
 	a, _ := NewOAuth("testingoauthroundtripperwrapper")
