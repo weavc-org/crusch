@@ -182,7 +182,7 @@ func TestPost(t *testing.T) {
 }
 
 func TestParseQuery(t *testing.T) {
-	var s string = "weavc=crusch&one=1"
+	var s string = "one=1&weavc=crusch"
 
 	query, err := parseQuery(s)
 	if err != nil {
