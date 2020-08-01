@@ -1,4 +1,4 @@
-module github.com/mogolade/crusch
+module github.com/weavc/crusch
 
 go 1.13
 

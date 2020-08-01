@@ -9,14 +9,14 @@ import (
 
 var (
 	generalResponse map[string]string = map[string]string{
-		"mogolade": "crusch",
-		"one":      "1",
+		"weavc": "crusch",
+		"one":   "1",
 	}
 )
 
 type m struct {
-	Mogolade string `json:"mogolade" url:"mogolade"`
-	One      string `json:"one" url:"one"`
+	Weavc string `json:"weavc" url:"weavc"`
+	One   string `json:"one" url:"one"`
 }
 
 func TestNewGithubClient(t *testing.T) {
@@ -36,8 +36,8 @@ func TestGet(t *testing.T) {
 	}
 
 	want := m{
-		Mogolade: "crusch",
-		One:      "1",
+		Weavc: "crusch",
+		One:   "1",
 	}
 
 	if !reflect.DeepEqual(v, want) {
@@ -95,14 +95,14 @@ func TestPut(t *testing.T) {
 	client := setupClient(generalResponse)
 
 	var v m
-	_, err := client.Put(setupAuth(), "test/uri", &m{Mogolade: "crusch", One: "1"}, &v)
+	_, err := client.Put(setupAuth(), "test/uri", &m{Weavc: "crusch", One: "1"}, &v)
 	if err != nil {
 		t.Errorf("valid put: unexpected %v", err)
 	}
 
 	want := m{
-		Mogolade: "crusch",
-		One:      "1",
+		Weavc: "crusch",
+		One:   "1",
 	}
 
 	if !reflect.DeepEqual(v, want) {
@@ -125,14 +125,14 @@ func TestPatch(t *testing.T) {
 	client := setupClient(generalResponse)
 
 	var v m
-	_, err := client.Patch(setupAuth(), "test/uri", &m{Mogolade: "crusch", One: "1"}, &v)
+	_, err := client.Patch(setupAuth(), "test/uri", &m{Weavc: "crusch", One: "1"}, &v)
 	if err != nil {
 		t.Errorf("valid patch: unexpected %v", err)
 	}
 
 	want := m{
-		Mogolade: "crusch",
-		One:      "1",
+		Weavc: "crusch",
+		One:   "1",
 	}
 
 	if !reflect.DeepEqual(v, want) {
@@ -155,14 +155,14 @@ func TestPost(t *testing.T) {
 	client := setupClient(generalResponse)
 
 	var v m
-	_, err := client.Post(setupAuth(), "test/uri", &m{Mogolade: "crusch", One: "1"}, &v)
+	_, err := client.Post(setupAuth(), "test/uri", &m{Weavc: "crusch", One: "1"}, &v)
 	if err != nil {
 		t.Errorf("valid post: unexpected %v", err)
 	}
 
 	want := m{
-		Mogolade: "crusch",
-		One:      "1",
+		Weavc: "crusch",
+		One:   "1",
 	}
 
 	if !reflect.DeepEqual(v, want) {
@@ -182,7 +182,7 @@ func TestPost(t *testing.T) {
 }
 
 func TestParseQuery(t *testing.T) {
-	var s string = "mogolade=crusch&one=1"
+	var s string = "weavc=crusch&one=1"
 
 	query, err := parseQuery(s)
 	if err != nil {
@@ -192,7 +192,7 @@ func TestParseQuery(t *testing.T) {
 		t.Errorf("valid string query: returned %s want %s", query, s)
 	}
 
-	query, err = parseQuery(&m{Mogolade: "crusch", One: "1"})
+	query, err = parseQuery(&m{Weavc: "crusch", One: "1"})
 	if err != nil {
 		t.Errorf("valid struct query: unexpected %v", err)
 	}
@@ -214,7 +214,7 @@ func TestParseQuery(t *testing.T) {
 	}
 
 	var v map[interface{}]interface{} = map[interface{}]interface{}{
-		"mogolade": map[interface{}]interface{}{"crusch": "1"},
+		"weavc": map[interface{}]interface{}{"crusch": "1"},
 	}
 	query, err = parseQuery(v)
 	if err == nil {

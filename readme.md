@@ -1,5 +1,5 @@
-![tests](https://github.com/mogolade/crusch/workflows/Go/badge.svg?branch=master) 
-[![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/mogolade/crusch)
+![tests](https://github.com/weavc/crusch/workflows/Go/badge.svg?branch=master) 
+[![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=blue)](https://pkg.go.dev/github.com/weavc/crusch)
 
 Crusch is a lightweight libary which provides tools for Github Apps to communicate with Githubs V3 API, without too much unnecessary hassle.
 
@@ -10,7 +10,7 @@ If you are looking for something more complete then [`go-github`](https://github
 ### Usage
 
 ```go
-import "github.com/mogolade/crusch"
+import "github.com/weavc/crusch"
 ```
 
 basic installation example
@@ -21,8 +21,8 @@ authorizer, err := crusch
 
 res, err := crusch.Client.Get(
     authorizer, 
-    "/repos/mogolade/crusch/issues", 
-    "assignee=mogolade&state=open", 
+    "/repos/weavc/crusch/issues", 
+    "assignee=weavc&state=open", 
     &v)
 ```
 
