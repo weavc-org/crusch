@@ -123,7 +123,7 @@ func TestInstallationAuthorizer(t *testing.T) {
 	}
 
 	// this time should go thorugh lastUsed
-	h, err = auth.GetHeader()
+	_, err = auth.GetHeader()
 	if err != nil {
 		t.Errorf("installation auth: unexpected %v", err)
 	}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"reflect"
 	"strings"
@@ -83,7 +82,7 @@ func (c *Client) Get(authorizer Authorizer, uri string, params interface{}, v in
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
 	return c.Do(authorizer, req, v)
@@ -101,7 +100,7 @@ func (c *Client) Delete(authorizer Authorizer, uri string) (*http.Response, erro
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
 	return c.Do(authorizer, req, nil)
@@ -126,7 +125,7 @@ func (c *Client) Put(authorizer Authorizer, uri string, body interface{}, v inte
 		b,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
 	return c.Do(authorizer, req, v)
@@ -151,7 +150,7 @@ func (c *Client) Patch(authorizer Authorizer, uri string, body interface{}, v in
 		b,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
 	return c.Do(authorizer, req, v)
@@ -176,7 +175,7 @@ func (c *Client) Post(authorizer Authorizer, uri string, body interface{}, v int
 		b,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create request: %v", err)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 
 	return c.Do(authorizer, req, v)
@@ -229,7 +228,7 @@ func parseQuery(params interface{}) (string, error) {
 	default:
 		val := reflect.ValueOf(params)
 		if val.Kind() == reflect.Struct {
-			return "", fmt.Errorf("Unknown type of params, must be string, struct or nil")
+			return "", fmt.Errorf("unknown type of params, must be string, struct or nil")
 		}
 		q := reflect.ValueOf(params)
 		if q.Kind() == reflect.Ptr && q.IsNil() {
@@ -252,19 +251,13 @@ func jsonifyBody(body interface{}) (*bytes.Buffer, error) {
 		return bytes.NewBufferString(""), nil
 	}
 
-	var buf io.ReadWriter
-	buf = &bytes.Buffer{}
+	var buf = &bytes.Buffer{}
 	enc := json.NewEncoder(buf)
 	enc.SetEscapeHTML(false)
 	err := enc.Encode(body)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to encode body: %v", err)
+		return nil, fmt.Errorf("failed to encode body: %v", err)
 	}
 
-	buffer, ok := buf.(*bytes.Buffer)
-	if !ok {
-		return nil, fmt.Errorf("Failed to create buffer")
-	}
-
-	return buffer, nil
+	return buf, nil
 }

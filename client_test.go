@@ -63,7 +63,7 @@ func TestGet(t *testing.T) {
 		w string
 		h string
 	}
-	b := badBinding{}
+	b := badBinding{w: "", h: ""}
 	_, err = client.Get(setupAuth(), "test/uri", nil, b)
 	if err == nil {
 		t.Errorf("invalid get, bad binding: unexpected nil error %v", err)
@@ -208,7 +208,7 @@ func TestParseQuery(t *testing.T) {
 		t.Errorf("valid nil query: returned %s want %s", query, "")
 	}
 
-	query, err = parseQuery(123)
+	_, err = parseQuery(123)
 	if err == nil {
 		t.Errorf("invalid number query: unexpected nil err")
 	}
@@ -216,7 +216,7 @@ func TestParseQuery(t *testing.T) {
 	var v map[interface{}]interface{} = map[interface{}]interface{}{
 		"weavc": map[interface{}]interface{}{"crusch": "1"},
 	}
-	query, err = parseQuery(v)
+	_, err = parseQuery(v)
 	if err == nil {
 		t.Errorf("invalid struct query: unexpected nil err")
 	}
@@ -242,10 +242,6 @@ func setupAuth() Authorizer {
 
 type testTransport struct {
 	body interface{}
-}
-
-func newTransport() *testTransport {
-	return &testTransport{}
 }
 
 func (t *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {

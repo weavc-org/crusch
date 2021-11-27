@@ -17,7 +17,7 @@ func TestAttachAuthorizer(t *testing.T) {
 	}
 
 	req, _ := http.NewRequest("GET", "test.com", nil)
-	res, err := c.Do(req)
+	res, _ := c.Do(req)
 
 	s := res.Request.Header.Get("Authorization")
 	if s != "bearer testingoauthroundtripperwrapper" {

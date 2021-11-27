@@ -33,7 +33,7 @@ func TestApplication(t *testing.T) {
 		t.Errorf("%v", err)
 	}
 
-	a, err := NewApplicationAuth(id, key)
+	a, _ := NewApplicationAuth(id, key)
 
 	var v map[string]interface{}
 	res, err := GithubClient.Get(a, "app", nil, &v)
@@ -73,7 +73,7 @@ func TestInstallation(t *testing.T) {
 		t.Errorf("%v", err)
 	}
 
-	a, err := NewInstallationAuth(id, iid, key)
+	a, _ := NewInstallationAuth(id, iid, key)
 
 	var v map[string]interface{}
 	res, err := GithubClient.Get(a, "installation/repositories", nil, &v)

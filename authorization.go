@@ -71,9 +71,10 @@ func (a *ApplicationAuth) Dispose() {
 // GetHeader generates a new JWT token using the ApplicationID and PEM from Github
 // This header is used for authenticating a Github application against Githubs api
 func (a *ApplicationAuth) GetHeader() (string, error) {
+	now := time.Now()
 	claims := &jwt.StandardClaims{
-		IssuedAt:  time.Now().Unix(),
-		ExpiresAt: time.Now().Add(time.Minute).Unix(),
+		IssuedAt:  now.Add(time.Minute - 1).Unix(),
+		ExpiresAt: now.Add(time.Minute * 4).Unix(),
 		Issuer:    strconv.FormatInt(a.ApplicationID, 10),
 	}
 

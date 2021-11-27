@@ -13,7 +13,7 @@ type transport struct {
 func (t *transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	h, err := t.authorizer.GetHeader()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get authorization header: %v", err)
+		return nil, fmt.Errorf("failed to get authorization header: %v", err)
 	}
 
 	req.Header.Add("Authorization", h)
