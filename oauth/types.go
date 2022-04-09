@@ -24,3 +24,17 @@ type AccessToken struct {
 	Error                 string `json:"error"`
 	ErrorDescription      string `json:"error_description"`
 }
+
+type AccessTokenRequest struct {
+	Code     string `url:"code"`
+	Secret   string `url:"client_secret"`
+	State    string `url:"state"`
+	Id       string `url:"client_id"`
+	Redirect string `url:"redirect_uri"`
+}
+
+type RedirectRequest struct {
+	State        string `url:"state"`
+	Redirect_uri string `url:"redirect_uri"`
+	Client_id    string `url:"client_id"`
+}
