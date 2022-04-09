@@ -5,10 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 
-	"github.com/google/go-querystring/query"
+	"github.com/weavc/crusch/internal"
 )
 
 // Client is used to process requests to and from Githubs v3 api
@@ -69,7 +68,7 @@ func (c *Client) RemoveHeader(name string) {
 func (c *Client) Get(authorizer Authorizer, uri string, params interface{}, v interface{}) (*http.Response, error) {
 	var req *http.Request
 
-	query, err := parseQuery(params)
+	query, err := internal.ParseQuery(params)
 	if err != nil {
 		return nil, err
 	}
@@ -114,7 +113,7 @@ func (c *Client) Put(authorizer Authorizer, uri string, body interface{}, v inte
 
 	uri = strings.TrimLeft(uri, "/")
 
-	b, err := jsonifyBody(body)
+	b, err := internal.JsonifyBody(body)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +136,7 @@ func (c *Client) Put(authorizer Authorizer, uri string, body interface{}, v inte
 func (c *Client) Patch(authorizer Authorizer, uri string, body interface{}, v interface{}) (*http.Response, error) {
 	var req *http.Request
 
-	b, err := jsonifyBody(body)
+	b, err := internal.JsonifyBody(body)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +161,7 @@ func (c *Client) Patch(authorizer Authorizer, uri string, body interface{}, v in
 func (c *Client) Post(authorizer Authorizer, uri string, body interface{}, v interface{}) (*http.Response, error) {
 	var req *http.Request
 
-	b, err := jsonifyBody(body)
+	b, err := internal.JsonifyBody(body)
 	if err != nil {
 		return nil, err
 	}
@@ -217,47 +216,4 @@ func (c *Client) Do(authorizer Authorizer, req *http.Request, v interface{}) (*h
 	}
 
 	return res, err
-}
-
-func parseQuery(params interface{}) (string, error) {
-	switch v := params.(type) {
-	case string:
-		return v, nil
-	case nil:
-		return "", nil
-	default:
-		val := reflect.ValueOf(params)
-		if val.Kind() == reflect.Struct {
-			return "", fmt.Errorf("unknown type of params, must be string, struct or nil")
-		}
-		q := reflect.ValueOf(params)
-		if q.Kind() == reflect.Ptr && q.IsNil() {
-			return "", nil
-		}
-
-		qs, err := query.Values(params)
-		if err != nil {
-			return "", err
-		}
-
-		return qs.Encode(), nil
-	}
-
-}
-
-func jsonifyBody(body interface{}) (*bytes.Buffer, error) {
-
-	if body == nil {
-		return bytes.NewBufferString(""), nil
-	}
-
-	var buf = &bytes.Buffer{}
-	enc := json.NewEncoder(buf)
-	enc.SetEscapeHTML(false)
-	err := enc.Encode(body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode body: %v", err)
-	}
-
-	return buf, nil
 }
