@@ -7,7 +7,7 @@ type Builder interface {
 	ConfigureGithub(secret string, clientId string, redirectUri string) Builder
 	Configure(func(*ClientConfig)) Builder
 	RegisterCustomResponseHandler(http.HandlerFunc) Builder
-	RegisterCustomStateHandler(func(w http.ResponseWriter, r *http.Request) string) Builder
+	RegisterCustomStateHandler(func(r *http.Request) string) Builder
 }
 
 func NewBuilder() Builder {
@@ -45,7 +45,7 @@ func (b *builder) RegisterCustomResponseHandler(f http.HandlerFunc) Builder {
 	return b
 }
 
-func (b *builder) RegisterCustomStateHandler(f func(w http.ResponseWriter, r *http.Request) string) Builder {
+func (b *builder) RegisterCustomStateHandler(f func(r *http.Request) string) Builder {
 	b.oauthService.clientConfig.StateHandler = f
 	return b
 }
@@ -62,6 +62,6 @@ func defaultResponseHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Ok"))
 }
 
-func defaultStateHandler(w http.ResponseWriter, r *http.Request) string {
+func defaultStateHandler(r *http.Request) string {
 	return "12345"
 }

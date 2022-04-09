@@ -1,9 +1,11 @@
 package oauth
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/weavc/crusch/internal"
 )
@@ -13,23 +15,30 @@ type OauthService struct {
 	githubConfig *GithubConfig
 }
 
-func (s *OauthService) AccessCode(code string, state string) (AccessToken, error) {
-	v := AccessToken{}
+func (s *OauthService) AccessCode(code string, state string) (*AccessToken, error) {
+	v := &AccessToken{}
 
-	m := map[string]string{
-		"code":          code,
-		"client_secret": s.githubConfig.Secret,
-		"state":         state,
-		"client_id":     s.githubConfig.ClientId,
-		"redirect_uri":  s.githubConfig.RedirectUri,
+	m := struct {
+		Code     string `url:"code"`
+		Secret   string `url:"client_secret"`
+		State    string `url:"state"`
+		Id       string `url:"client_id"`
+		Redirect string `url:"redirect_uri"`
+	}{
+		Code:     code,
+		Secret:   s.githubConfig.Secret,
+		State:    state,
+		Id:       s.githubConfig.ClientId,
+		Redirect: s.githubConfig.RedirectUri,
 	}
-	body, err := internal.JsonifyBody(m)
+
+	body, err := internal.ParseQuery(&m)
 	if err != nil {
-		return v, err
+		return nil, err
 	}
 
 	client := http.DefaultClient
-	req, err := http.NewRequest(http.MethodPost, "https://github.com/login/oauth/access_token", body)
+	req, err := http.NewRequest(http.MethodPost, "https://github.com/login/oauth/access_token", bytes.NewBuffer([]byte(body)))
 	if err != nil {
 		panic(err)
 	}
@@ -37,39 +46,47 @@ func (s *OauthService) AccessCode(code string, state string) (AccessToken, error
 	req.Header.Add("Accept", "application/json")
 	res, err := client.Do(req)
 	if err != nil {
-		return v, err
+		return nil, err
 	}
 
 	if res.StatusCode != 200 {
-		return v, fmt.Errorf("request failed with status code %b", res.StatusCode)
+		return nil, fmt.Errorf("request failed with status code %d", res.StatusCode)
 	}
 
 	decoder := json.NewDecoder(res.Body)
-	err = decoder.Decode(&v)
+	err = decoder.Decode(v)
 	if err != nil {
-		return v, err
+		return nil, err
+	}
+
+	if len(v.Error) != 0 {
+		return nil, fmt.Errorf("an error occured retrieving access tokens from github [%s]: %s", v.Error, v.ErrorDescription)
 	}
 
 	return v, nil
 }
 
 func (s *OauthService) Redirect(state string) string {
-	q := map[string]string{
-		"state":        state,
-		"redirect_uri": s.githubConfig.RedirectUri,
-		"client_id":    s.githubConfig.ClientId,
+	q := struct {
+		State        string `url:"state"`
+		Redirect_uri string `url:"redirect_uri"`
+		Client_id    string `url:"client_id"`
+	}{
+		State:        state,
+		Redirect_uri: s.githubConfig.RedirectUri,
+		Client_id:    s.githubConfig.ClientId,
 	}
 
-	qs, err := internal.ParseQuery(q)
+	qs, err := internal.ParseQuery(&q)
 	if err != nil {
-		panic("Unable to format querystring")
+		panic(err)
 	}
 
 	return fmt.Sprintf("https://github.com/login/oauth/authorize?%s", qs)
 }
 
 func (s *OauthService) OauthRedirectHandler(w http.ResponseWriter, r *http.Request) {
-	state := s.clientConfig.StateHandler(w, r)
+	state := s.clientConfig.StateHandler(r)
 	redirect := s.Redirect(state)
 	http.Redirect(w, r, redirect, http.StatusFound)
 }
@@ -80,30 +97,43 @@ func (s *OauthService) OauthResponseHandler(w http.ResponseWriter, r *http.Reque
 	code := params.Get("code")
 	state := params.Get("state")
 
+	if s.clientConfig.ValidateState {
+		if state != s.clientConfig.StateHandler(r) {
+			w.WriteHeader(400)
+			w.Write([]byte("Invalid state"))
+			return
+		}
+	}
+
 	accessCode, err := s.AccessCode(code, state)
 	if err != nil {
 		w.WriteHeader(500)
+		w.Write([]byte("Could not retrieve access code from github"))
 		return
 	}
 
 	c := &http.Cookie{
 		Name:     "gh_token",
 		Value:    accessCode.AccessToken,
-		Expires:  internal.ParseUnix(accessCode.ExpiresIn),
+		Expires:  time.Now().UTC().Add(time.Duration(accessCode.ExpiresIn * 1000000000)),
 		Secure:   true,
 		SameSite: http.SameSiteDefaultMode,
+		HttpOnly: true,
 	}
-
-	cr := &http.Cookie{
-		Name:     "gh_refresh_token",
-		Value:    accessCode.RefreshToken,
-		Expires:  internal.ParseUnix(accessCode.RefreshTokenExpiresIn),
-		Secure:   true,
-		SameSite: http.SameSiteDefaultMode,
-	}
-
 	http.SetCookie(w, c)
-	http.SetCookie(w, cr)
+
+	if len(accessCode.RefreshToken) > 0 {
+		cr := &http.Cookie{
+			Name:     "gh_refresh_token",
+			Value:    accessCode.RefreshToken,
+			Expires:  time.Now().UTC().Add(time.Duration(accessCode.RefreshTokenExpiresIn * 1000000000)),
+			Secure:   true,
+			SameSite: http.SameSiteDefaultMode,
+			HttpOnly: true,
+		}
+
+		http.SetCookie(w, cr)
+	}
 
 	s.clientConfig.ResponseHandler(w, r)
 }

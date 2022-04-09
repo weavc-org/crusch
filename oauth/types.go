@@ -11,14 +11,16 @@ type GithubConfig struct {
 type ClientConfig struct {
 	ValidateState   bool
 	ResponseHandler http.HandlerFunc
-	StateHandler    func(w http.ResponseWriter, r *http.Request) string
+	StateHandler    func(r *http.Request) string
 }
 
 type AccessToken struct {
-	AccessToken           string
-	ExpiresIn             int64
-	RefreshToken          string
-	RefreshTokenExpiresIn int64
-	Scope                 string
-	TokenType             string
+	AccessToken           string `json:"access_token"`
+	ExpiresIn             int64  `json:"expires_in"`
+	RefreshToken          string `json:"refresh_token"`
+	RefreshTokenExpiresIn int64  `json:"refresh_token_expires_in"`
+	Scope                 string `json:"scope"`
+	TokenType             string `json:"token_type"`
+	Error                 string `json:"error"`
+	ErrorDescription      string `json:"error_description"`
 }
