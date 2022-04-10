@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/weavc/crusch/internal"
 )
 
 var (
@@ -184,7 +186,7 @@ func TestPost(t *testing.T) {
 func TestParseQuery(t *testing.T) {
 	var s string = "one=1&weavc=crusch"
 
-	query, err := parseQuery(s)
+	query, err := internal.ParseQuery(s)
 	if err != nil {
 		t.Errorf("valid string query: unexpected %v", err)
 	}
@@ -192,7 +194,7 @@ func TestParseQuery(t *testing.T) {
 		t.Errorf("valid string query: returned %s want %s", query, s)
 	}
 
-	query, err = parseQuery(&m{Weavc: "crusch", One: "1"})
+	query, err = internal.ParseQuery(&m{Weavc: "crusch", One: "1"})
 	if err != nil {
 		t.Errorf("valid struct query: unexpected %v", err)
 	}
@@ -200,7 +202,7 @@ func TestParseQuery(t *testing.T) {
 		t.Errorf("valid struct query: returned %s want %s", query, s)
 	}
 
-	query, err = parseQuery(nil)
+	query, err = internal.ParseQuery(nil)
 	if err != nil {
 		t.Errorf("valid nil query: unexpected %v", err)
 	}
@@ -208,7 +210,7 @@ func TestParseQuery(t *testing.T) {
 		t.Errorf("valid nil query: returned %s want %s", query, "")
 	}
 
-	_, err = parseQuery(123)
+	_, err = internal.ParseQuery(123)
 	if err == nil {
 		t.Errorf("invalid number query: unexpected nil err")
 	}
@@ -216,7 +218,7 @@ func TestParseQuery(t *testing.T) {
 	var v map[interface{}]interface{} = map[interface{}]interface{}{
 		"weavc": map[interface{}]interface{}{"crusch": "1"},
 	}
-	_, err = parseQuery(v)
+	_, err = internal.ParseQuery(v)
 	if err == nil {
 		t.Errorf("invalid struct query: unexpected nil err")
 	}
@@ -245,7 +247,7 @@ type testTransport struct {
 }
 
 func (t *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	body, err := jsonifyBody(t.body)
+	body, err := internal.JsonifyBody(t.body)
 	if err != nil {
 		return nil, err
 	}
